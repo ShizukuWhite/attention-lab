@@ -1,5 +1,6 @@
 import { analyzeText } from './tokenizer.js';
 import { embedTokens } from './embedding.js';
+import { dotProductSteps } from './dot-product.js';
 
 const input = document.querySelector('#token-input');
 const analyzeButton = document.querySelector('#analyze-button');
@@ -20,10 +21,31 @@ const detailVectorSource = document.querySelector('#detail-vector-source');
 const embeddingShape = document.querySelector('#embedding-shape');
 const embeddingDimension = document.querySelector('#embedding-dimension');
 const embeddingMatrixBody = document.querySelector('#embedding-matrix-body');
+const dotLeftSelect = document.querySelector('#dot-left-select');
+const dotRightSelect = document.querySelector('#dot-right-select');
+const pairLeftToken = document.querySelector('#pair-left-token');
+const pairRightToken = document.querySelector('#pair-right-token');
+const pairLeftVector = document.querySelector('#pair-left-vector');
+const pairRightVector = document.querySelector('#pair-right-vector');
+const pairLeftShape = document.querySelector('#pair-left-shape');
+const pairRightShape = document.querySelector('#pair-right-shape');
+const pairLeftSource = document.querySelector('#pair-left-source');
+const pairRightSource = document.querySelector('#pair-right-source');
+const dotProductEmpty = document.querySelector('#dot-product-empty');
+const singleTokenNote = document.querySelector('#single-token-note');
+const dotProductResults = document.querySelector('#dot-product-results');
+const dotProductStepsBody = document.querySelector('#dot-product-steps');
+const dotProductEquation = document.querySelector('#dot-product-equation');
+const dotProductValue = document.querySelector('#dot-product-value');
+const dotOutputShape = document.querySelector('#dot-output-shape');
+const dotResultShape = document.querySelector('#dot-result-shape');
+const dotUnknownNote = document.querySelector('#dot-unknown-note');
 
 let currentAnalysis;
 let currentEmbedding;
 let selectedIndex = null;
+let pairLeftIndex = null;
+let pairRightIndex = null;
 let lastStaleState = false;
 
 function setAnalysisStatus(message) {
@@ -37,8 +59,8 @@ function updateStaleState() {
   if (isStale !== lastStaleState) {
     setAnalysisStatus(
       isStale
-        ? '输入已修改，请点击 Analyze 更新下方 Tokens 与 Embedding。'
-        : '当前输入与最近一次分析一致。',
+        ? '输入已修改；请点击 Analyze 同步 Tokens、Embedding 与点积。'
+        : 'Tokens、Embedding 与点积都来自当前输入的最近一次 Analyze。',
     );
     lastStaleState = isStale;
   }
@@ -130,6 +152,104 @@ function renderEmbeddingMatrix() {
   embeddingMatrixBody.replaceChildren(fragment);
 }
 
+function formatDotNumber(value) {
+  return String(Number(value.toFixed(6)));
+}
+
+function formatVector(vector) {
+  return `[${vector.map(formatDotNumber).join(', ')}]`;
+}
+
+function embeddingSourceLabel(source) {
+  return source === 'manual' ? '人工设定' : '未知 Token：零向量占位';
+}
+
+function populateDotProductSelectors() {
+  const rows = currentEmbedding.rows;
+  const leftOptions = document.createDocumentFragment();
+  const rightOptions = document.createDocumentFragment();
+
+  for (const row of rows) {
+    const makeOption = () => {
+      const option = document.createElement('option');
+      option.value = String(row.index);
+      option.textContent = `位置 ${row.index} · ${row.text}`;
+      return option;
+    };
+    leftOptions.append(makeOption());
+    rightOptions.append(makeOption());
+  }
+
+  dotLeftSelect.replaceChildren(leftOptions);
+  dotRightSelect.replaceChildren(rightOptions);
+  dotLeftSelect.disabled = rows.length === 0;
+  dotRightSelect.disabled = rows.length === 0;
+  dotLeftSelect.value = pairLeftIndex === null ? '' : String(pairLeftIndex);
+  dotRightSelect.value = pairRightIndex === null ? '' : String(pairRightIndex);
+}
+
+function renderDotProduct() {
+  const rows = currentEmbedding.rows;
+  const leftRow = rows.find((row) => row.index === pairLeftIndex);
+  const rightRow = rows.find((row) => row.index === pairRightIndex);
+  const hasRows = rows.length > 0;
+
+  dotProductEmpty.hidden = hasRows;
+  dotProductResults.hidden = !hasRows;
+  singleTokenNote.hidden = rows.length !== 1;
+  dotLeftSelect.disabled = !hasRows;
+  dotRightSelect.disabled = !hasRows;
+  dotOutputShape.textContent = '[]';
+  dotResultShape.textContent = '[]';
+
+  if (!hasRows || !leftRow || !rightRow) return;
+
+  dotLeftSelect.value = String(pairLeftIndex);
+  dotRightSelect.value = String(pairRightIndex);
+  pairLeftToken.textContent = `位置 ${leftRow.index} · ${leftRow.text}`;
+  pairRightToken.textContent = `位置 ${rightRow.index} · ${rightRow.text}`;
+  pairLeftVector.textContent = formatVector(leftRow.vector);
+  pairRightVector.textContent = formatVector(rightRow.vector);
+  pairLeftShape.textContent = `[${leftRow.vector.length}]`;
+  pairRightShape.textContent = `[${rightRow.vector.length}]`;
+  pairLeftSource.textContent = embeddingSourceLabel(leftRow.source);
+  pairRightSource.textContent = embeddingSourceLabel(rightRow.source);
+
+  const calculation = dotProductSteps(leftRow.vector, rightRow.vector);
+  const fragment = document.createDocumentFragment();
+  for (const step of calculation.steps) {
+    const row = document.createElement('tr');
+    for (const [className, value] of [
+      ['dot-index', String(step.index)],
+      ['dot-number', formatDotNumber(step.left)],
+      ['dot-number', formatDotNumber(step.right)],
+      ['dot-number', formatDotNumber(step.product)],
+      ['dot-number', formatDotNumber(step.runningSum)],
+    ]) {
+      const cell = document.createElement('td');
+      cell.className = className;
+      cell.textContent = value;
+      row.append(cell);
+    }
+    fragment.append(row);
+  }
+  dotProductStepsBody.replaceChildren(fragment);
+
+  const terms = calculation.steps.map((step) => (
+    `${formatDotNumber(step.left)} × ${formatDotNumber(step.right)}`
+  ));
+  dotProductEquation.textContent = `${terms.join(' + ')} = ${formatDotNumber(calculation.result)}`;
+  dotProductValue.textContent = formatDotNumber(calculation.result);
+  dotOutputShape.textContent = `[${calculation.outputShape.join(', ')}]`;
+  dotResultShape.textContent = `[${calculation.outputShape.join(', ')}]`;
+
+  const includesUnknown = leftRow.source === 'unknown' || rightRow.source === 'unknown';
+  dotUnknownNote.hidden = !includesUnknown;
+  if (includesUnknown) {
+    dotUnknownNote.textContent = '零结果来自未知 Token 的零向量占位；这不代表两个词不相关或词义相同。';
+  }
+}
+
 function renderTokens() {
   const fragment = document.createDocumentFragment();
 
@@ -193,11 +313,23 @@ tokenList.addEventListener('click', (event) => {
   updateStaleState();
 });
 
+function updateDotProductSelection() {
+  pairLeftIndex = dotLeftSelect.value === '' ? null : Number(dotLeftSelect.value);
+  pairRightIndex = dotRightSelect.value === '' ? null : Number(dotRightSelect.value);
+  renderDotProduct();
+  updateStaleState();
+}
+
+dotLeftSelect.addEventListener('change', updateDotProductSelection);
+dotRightSelect.addEventListener('change', updateDotProductSelection);
+
 function renderAnalysis() {
   sequenceLength.textContent = String(currentAnalysis.sequenceLength);
   sequenceShape.textContent = `[${currentAnalysis.shape.join(', ')}]`;
+  populateDotProductSelectors();
   renderTokens();
   renderEmbeddingMatrix();
+  renderDotProduct();
   updateStaleState();
 }
 
@@ -205,9 +337,13 @@ function analyzeCurrentInput(statusMessage) {
   currentAnalysis = analyzeText(input.value);
   currentEmbedding = embedTokens(currentAnalysis.tokens);
   selectedIndex = currentAnalysis.tokens.length > 0 ? 0 : null;
+  pairLeftIndex = currentEmbedding.rows.length > 0 ? currentEmbedding.rows[0].index : null;
+  pairRightIndex = currentEmbedding.rows.length > 1
+    ? currentEmbedding.rows.at(-1).index
+    : pairLeftIndex;
   lastStaleState = false;
   renderAnalysis();
-  setAnalysisStatus(`${statusMessage}：当前有 ${currentAnalysis.sequenceLength} 个 Token。`);
+  setAnalysisStatus(`${statusMessage}：当前有 ${currentAnalysis.sequenceLength} 个 Token；Tokens、Embedding 与点积已同步。`);
 }
 
 analyzeButton.addEventListener('click', () => {
