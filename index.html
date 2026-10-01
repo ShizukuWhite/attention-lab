@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f5f0">
-    <title>Vector Dot Product Playground · Attention Lab</title>
+    <title>Q K V Projection Playground · Attention Lab</title>
     <link rel="stylesheet" href="/src/styles.css">
     <script type="module" src="/src/app.js"></script>
   </head>
@@ -15,14 +15,14 @@
           <span class="brand-mark" aria-hidden="true">A</span>
           <span>Attention Lab</span>
         </a>
-        <span class="header-phase">PHASE 03 · VECTOR DOT PRODUCT</span>
+        <span class="header-phase">PHASE 04 · Q / K / V PROJECTION</span>
       </header>
 
       <main>
         <section class="intro" aria-labelledby="page-title">
-          <p class="eyebrow">从向量到标量</p>
-          <h1 id="page-title">Vector Dot Product Playground</h1>
-          <p class="intro-copy">选择两个 Token 的 Embedding，逐项观察分量相乘、贡献累加，以及最后得到的点积标量。</p>
+          <p class="eyebrow">从 Embedding 到 Q / K / V</p>
+          <h1 id="page-title">Q / K / V Projection Playground</h1>
+          <p class="intro-copy">让同一个 Embedding 矩阵 X 分别经过三组小权重，观察 Q、K、V 的每个数字和 Shape 如何产生。</p>
         </section>
 
         <div class="workspace-grid">
@@ -67,7 +67,7 @@
               <span class="stage-tag">当前阶段</span>
             </div>
 
-            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens、Embedding 与点积都仍来自上次 Analyze。</p>
+            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens、Embedding、点积与 Q/K/V 都仍来自上次 Analyze。</p>
 
             <div class="metrics" aria-label="序列信息">
               <div class="metric-card">
@@ -175,7 +175,7 @@
 
         <section class="panel dot-product-panel" aria-labelledby="dot-product-title">
           <div class="panel-heading dot-product-heading">
-            <span class="step-number step-number--purple" aria-hidden="true">04</span>
+                <span class="step-number step-number--purple" aria-hidden="true">04</span>
             <div>
               <p class="panel-kicker">逐项运算</p>
               <h2 id="dot-product-title">两个 Embedding 的点积</h2>
@@ -270,22 +270,195 @@ for (let i = 0; i &lt; a.length; i += 1) {
           </div>
         </section>
 
+        <section class="panel projection-panel" id="projection-panel" aria-labelledby="projection-title">
+          <div class="panel-heading projection-heading">
+            <span class="step-number step-number--purple" aria-hidden="true">05</span>
+            <div>
+              <p class="panel-kicker">Phase 4 · 三组投影</p>
+              <h2 id="projection-title">Q、K、V 矩阵</h2>
+            </div>
+            <span class="matrix-equation">输出 Shape <code id="projection-output-shape">[4, 2]</code></span>
+          </div>
+
+          <p class="projection-intro">直觉上，同一份 X 用不同权重重新组合每个 Token 的三个分量，因此得到三种表示。Q 是后续发出查询的表示，K 是后续被匹配的表示，V 是后续被汇总的内容；本阶段只生成它们，还没有 Token 之间的匹配或汇总。所有 Embedding 和权重都是未训练的教学数字。</p>
+
+          <div class="projection-formulas" aria-label="Q K V 投影公式">
+            <span>数学</span>
+            <code>Q = XWq</code>
+            <code>K = XWk</code>
+            <code>V = XWv</code>
+          </div>
+
+          <section class="projection-subsection" aria-labelledby="projection-weights-title">
+            <div class="projection-section-heading">
+              <div>
+                <p class="panel-kicker">固定教学权重</p>
+                <h3 id="projection-weights-title">Wq、Wk、Wv</h3>
+              </div>
+              <span class="projection-shape-flow">每个权重 Shape <code>[3, 2]</code></span>
+            </div>
+            <p class="projection-supporting-copy">每个 Token 位置都使用同一组权重。权重没有 bias，也没有经过训练；数字只用于观察行乘列的计算。</p>
+
+            <div class="projection-weight-grid">
+              <article class="projection-matrix-card">
+                <div class="projection-matrix-heading"><h4>Wq</h4><span>Query 投影 · <code>[3, 2]</code></span></div>
+                <div class="projection-weight-scroll" role="region" aria-label="Wq 矩阵，可水平滚动" tabindex="0">
+                  <table class="projection-weight-table">
+                    <caption class="visually-hidden">Wq 权重矩阵，Shape 为 3 乘 2</caption>
+                    <thead><tr><th scope="col">行</th><th scope="col">列 0</th><th scope="col">列 1</th></tr></thead>
+                    <tbody id="projection-wq-body"></tbody>
+                  </table>
+                </div>
+              </article>
+              <article class="projection-matrix-card">
+                <div class="projection-matrix-heading"><h4>Wk</h4><span>Key 投影 · <code>[3, 2]</code></span></div>
+                <div class="projection-weight-scroll" role="region" aria-label="Wk 矩阵，可水平滚动" tabindex="0">
+                  <table class="projection-weight-table">
+                    <caption class="visually-hidden">Wk 权重矩阵，Shape 为 3 乘 2</caption>
+                    <thead><tr><th scope="col">行</th><th scope="col">列 0</th><th scope="col">列 1</th></tr></thead>
+                    <tbody id="projection-wk-body"></tbody>
+                  </table>
+                </div>
+              </article>
+              <article class="projection-matrix-card">
+                <div class="projection-matrix-heading"><h4>Wv</h4><span>Value 投影 · <code>[3, 2]</code></span></div>
+                <div class="projection-weight-scroll" role="region" aria-label="Wv 矩阵，可水平滚动" tabindex="0">
+                  <table class="projection-weight-table">
+                    <caption class="visually-hidden">Wv 权重矩阵，Shape 为 3 乘 2</caption>
+                    <thead><tr><th scope="col">行</th><th scope="col">列 0</th><th scope="col">列 1</th></tr></thead>
+                    <tbody id="projection-wv-body"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="projection-subsection" aria-labelledby="projection-outputs-title">
+            <div class="projection-section-heading">
+              <div>
+                <p class="panel-kicker">同一输入 X 的三个结果</p>
+                <h3 id="projection-outputs-title">Q、K、V 输出矩阵</h3>
+              </div>
+              <span class="projection-shape-flow"><code id="projection-x-shape">[4, 3]</code> × <code>[3, 2]</code> → <code id="projection-output-shape-summary">[4, 2]</code></span>
+            </div>
+            <p class="projection-supporting-copy">X 的每一行与权重矩阵的一列做点积，得到输出矩阵的一个格子。点击任意 Q、K 或 V 数字，可以查看完整乘积和累计和。位置与分量索引都从 0 开始。</p>
+
+            <div class="projection-output-grid">
+              <article class="projection-output-card" aria-labelledby="projection-q-title">
+                <div class="projection-output-heading"><h4 id="projection-q-title">Q <span>Query</span></h4><span>Shape <code id="projection-q-shape">[4, 2]</code></span></div>
+                <div class="projection-output-scroll" role="region" aria-label="Q 输出矩阵，可水平滚动" tabindex="0">
+                  <table class="matrix-table projection-output-table">
+                    <caption class="visually-hidden">Q 输出矩阵，包含 Token 位置、两个分量与来源</caption>
+                    <thead><tr><th scope="col">位置</th><th scope="col">Token</th><th scope="col">分量 0</th><th scope="col">分量 1</th><th scope="col">来源</th></tr></thead>
+                    <tbody id="projection-q-body"></tbody>
+                  </table>
+                </div>
+              </article>
+              <article class="projection-output-card" aria-labelledby="projection-k-title">
+                <div class="projection-output-heading"><h4 id="projection-k-title">K <span>Key</span></h4><span>Shape <code id="projection-k-shape">[4, 2]</code></span></div>
+                <div class="projection-output-scroll" role="region" aria-label="K 输出矩阵，可水平滚动" tabindex="0">
+                  <table class="matrix-table projection-output-table">
+                    <caption class="visually-hidden">K 输出矩阵，包含 Token 位置、两个分量与来源</caption>
+                    <thead><tr><th scope="col">位置</th><th scope="col">Token</th><th scope="col">分量 0</th><th scope="col">分量 1</th><th scope="col">来源</th></tr></thead>
+                    <tbody id="projection-k-body"></tbody>
+                  </table>
+                </div>
+              </article>
+              <article class="projection-output-card" aria-labelledby="projection-v-title">
+                <div class="projection-output-heading"><h4 id="projection-v-title">V <span>Value</span></h4><span>Shape <code id="projection-v-shape">[4, 2]</code></span></div>
+                <div class="projection-output-scroll" role="region" aria-label="V 输出矩阵，可水平滚动" tabindex="0">
+                  <table class="matrix-table projection-output-table">
+                    <caption class="visually-hidden">V 输出矩阵，包含 Token 位置、两个分量与来源</caption>
+                    <thead><tr><th scope="col">位置</th><th scope="col">Token</th><th scope="col">分量 0</th><th scope="col">分量 1</th><th scope="col">来源</th></tr></thead>
+                    <tbody id="projection-v-body"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+
+            <p class="projection-empty-note" id="projection-empty-note" hidden></p>
+            <p class="projection-unknown-note" id="projection-unknown-note" hidden></p>
+          </section>
+
+          <section class="projection-trace" id="projection-trace" aria-labelledby="projection-trace-heading" aria-live="polite" hidden>
+            <div class="projection-trace-heading">
+              <div>
+                <p class="panel-kicker">输出格拆解</p>
+                <h3 id="projection-trace-heading"><span id="projection-trace-cell">Q[0, 0]</span> · <span id="projection-trace-token">位置 0 · I</span></h3>
+              </div>
+              <span class="projection-trace-route" id="projection-trace-route">X 第 0 行 × Wq 第 0 列</span>
+            </div>
+            <div class="projection-vector-grid">
+              <article class="projection-vector-card">
+                <p class="pair-vector-label">输入 X 的一行</p>
+                <p class="projection-vector-value"><code id="projection-input-row"></code></p>
+                <p class="pair-vector-meta">Shape <code id="projection-input-row-shape">[3]</code> · <span id="projection-input-source"></span></p>
+              </article>
+              <article class="projection-vector-card">
+                <p class="pair-vector-label">权重矩阵的一列</p>
+                <p class="projection-vector-value"><code id="projection-weight-column"></code></p>
+                <p class="pair-vector-meta">Shape <code id="projection-weight-column-shape">[3]</code></p>
+              </article>
+            </div>
+
+            <div class="projection-trace-scroll" role="region" aria-label="投影格逐项乘积与累计和，可水平滚动" tabindex="0">
+              <table class="dot-product-table projection-trace-table">
+                <caption class="visually-hidden">投影中输入行与权重列的逐项乘积和累计和</caption>
+                <thead><tr><th scope="col">分量 t</th><th scope="col">X 分量</th><th scope="col">W 分量</th><th scope="col">乘积</th><th scope="col">累计和</th></tr></thead>
+                <tbody id="projection-steps"></tbody>
+              </table>
+            </div>
+
+            <div class="dot-equation-card projection-equation-card">
+              <span>逐项相乘并求和</span>
+              <code id="projection-equation"></code>
+            </div>
+
+            <div class="dot-result-card projection-result-card">
+              <div><span class="dot-result-label">输出格结果</span><strong id="projection-result"></strong></div>
+              <span class="dot-result-shape">标量 Shape <code id="projection-result-shape">[]</code></span>
+            </div>
+          </section>
+
+          <div class="projection-learning-grid">
+            <div>
+              <h3>直觉</h3>
+              <p>同一 X 使用三组不同权重。Q、K、V 的名字表示它们在后续 Attention 中将承担的角色；这里还没有计算 Token 之间的分数。</p>
+            </div>
+            <div>
+              <h3>数学</h3>
+              <p><code>Y[i,j] = Σ X[i,t] × W[t,j]</code>。输出格是 X 的一行与 W 的一列做点积，负权重会带来负贡献。</p>
+            </div>
+            <div>
+              <h3>Shape</h3>
+              <p><code>X [N, 3] × W [3, 2] → Q/K/V [N, 2]</code>。中间的 3 被求和，留下 N 行和 2 列；这里 <code>d_model=3</code>、<code>d_k=d_v=2</code>。</p>
+            </div>
+            <div>
+              <h3>对应的核心代码</h3>
+              <pre class="dot-code projection-code"><code>const xRow = X.matrix[i];
+const wColumn = W.matrix.map(row =&gt; row[j]);
+const steps = dotProductSteps(xRow, wColumn);</code></pre>
+              <p>本阶段的计算复用已经看过的点积步骤；矩阵乘法只是为每个输出格选择一行和一列。</p>
+            </div>
+          </div>
+        </section>
+
         <section class="learning-note" aria-labelledby="learning-title">
           <div class="learning-note-label">
             <span class="learning-dot" aria-hidden="true"></span>
             <span>本步要点</span>
           </div>
           <div>
-            <h2 id="learning-title">向量 · 逐项乘积 · 累加</h2>
-            <p>回看 Phase 1–2：输入先变成 N 个 Token，再为每个位置查出一个 3 维 Embedding，并排成 Shape 为 <code>[N, 3]</code> 的矩阵 X。当前点积直接使用其中两个位置的向量。</p>
+            <h2 id="learning-title">同一个 X · 三组投影 · Q / K / V</h2>
+            <p>从每个 Token 的 3 维 Embedding 组成矩阵 X，再分别乘以 Wq、Wk、Wv。权重固定且未训练；每个输出格都能拆成一行乘一列的点积。</p>
           </div>
-          <span class="learning-formula" aria-label="点积是对应分量相乘再求和">3 个乘积 → 1 个标量</span>
+          <span class="learning-formula" aria-label="输入矩阵乘以三组投影权重">X [N, 3] → Q / K / V [N, 2]</span>
         </section>
       </main>
 
       <footer class="site-footer">
         <span>一个可以动手观察的 Transformer 学习实验室</span>
-        <span>Phase 01 → 02 → 03 / Dot Product</span>
+        <span>Phase 01 → 02 → 03 → 04 / Q · K · V</span>
       </footer>
     </div>
   </body>
