@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f5f0">
-    <title>Embedding Playground · Attention Lab</title>
+    <title>Vector Dot Product Playground · Attention Lab</title>
     <link rel="stylesheet" href="/src/styles.css">
     <script type="module" src="/src/app.js"></script>
   </head>
@@ -15,14 +15,14 @@
           <span class="brand-mark" aria-hidden="true">A</span>
           <span>Attention Lab</span>
         </a>
-        <span class="header-phase">PHASE 02 · EMBEDDING PLAYGROUND</span>
+        <span class="header-phase">PHASE 03 · VECTOR DOT PRODUCT</span>
       </header>
 
       <main>
         <section class="intro" aria-labelledby="page-title">
-          <p class="eyebrow">从符号到数字</p>
-          <h1 id="page-title">Embedding Playground</h1>
-          <p class="intro-copy">为每个 Token 查出一个小向量，再把这些向量按位置排成矩阵。观察一个序列如何从文本变成数值表示。</p>
+          <p class="eyebrow">从向量到标量</p>
+          <h1 id="page-title">Vector Dot Product Playground</h1>
+          <p class="intro-copy">选择两个 Token 的 Embedding，逐项观察分量相乘、贡献累加，以及最后得到的点积标量。</p>
         </section>
 
         <div class="workspace-grid">
@@ -67,7 +67,7 @@
               <span class="stage-tag">当前阶段</span>
             </div>
 
-            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens 与 Embedding 都仍来自上次 Analyze。</p>
+            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens、Embedding 与点积都仍来自上次 Analyze。</p>
 
             <div class="metrics" aria-label="序列信息">
               <div class="metric-card">
@@ -173,22 +173,119 @@
           <p class="manual-vector-note">这些向量由人工设定，用于观察数据形状，不来自训练模型。未知 Token 使用零向量占位；相同的零向量不代表词义相同。</p>
         </section>
 
+        <section class="panel dot-product-panel" aria-labelledby="dot-product-title">
+          <div class="panel-heading dot-product-heading">
+            <span class="step-number step-number--purple" aria-hidden="true">04</span>
+            <div>
+              <p class="panel-kicker">逐项运算</p>
+              <h2 id="dot-product-title">两个 Embedding 的点积</h2>
+            </div>
+            <span class="matrix-equation">输出 Shape <code id="dot-output-shape">[]</code></span>
+          </div>
+
+          <p class="dot-product-intro">点积把两个向量对应位置的分量相乘，再把这些贡献加起来。同号分量产生正贡献，异号分量产生负贡献；整体数值可表示一种匹配程度，也会受到向量长度影响。当前向量是人工设定的教学数字，没有经过训练，结果不是模型学出的词义相似概率。</p>
+          <p class="dot-pair-independence" id="dot-pair-independence">下方点积选择与上方 Token 详情独立；两个选择可以指向同一位置。</p>
+
+          <div class="vector-select-grid">
+            <div class="vector-select-field">
+              <label class="field-label" for="dot-left-select">向量 A</label>
+              <select class="vector-select" id="dot-left-select" aria-describedby="dot-pair-independence"></select>
+            </div>
+            <div class="vector-select-field">
+              <label class="field-label" for="dot-right-select">向量 B</label>
+              <select class="vector-select" id="dot-right-select" aria-describedby="dot-pair-independence"></select>
+            </div>
+          </div>
+
+          <p class="single-token-note" id="single-token-note" hidden>当前只有一个 Token；A 与 B 都使用这个位置，展示它与自身的点积。</p>
+          <p class="dot-product-empty" id="dot-product-empty" hidden>没有 Token，无法选取向量计算点积。</p>
+
+          <div id="dot-product-results">
+            <div class="vector-pair-preview" aria-label="当前选择的两个向量">
+              <article class="pair-vector-card">
+                <p class="pair-vector-label">向量 A</p>
+                <p class="pair-vector-token" id="pair-left-token"></p>
+                <p class="pair-vector-value"><code id="pair-left-vector"></code></p>
+                <p class="pair-vector-meta">Shape <code id="pair-left-shape"></code></p>
+                <p class="pair-vector-meta">来源 <span id="pair-left-source"></span></p>
+              </article>
+              <article class="pair-vector-card">
+                <p class="pair-vector-label">向量 B</p>
+                <p class="pair-vector-token" id="pair-right-token"></p>
+                <p class="pair-vector-value"><code id="pair-right-vector"></code></p>
+                <p class="pair-vector-meta">Shape <code id="pair-right-shape"></code></p>
+                <p class="pair-vector-meta">来源 <span id="pair-right-source"></span></p>
+              </article>
+            </div>
+
+            <div class="dot-table-scroll" role="region" aria-label="点积逐项乘法与累计和，可水平滚动" tabindex="0">
+              <table class="dot-product-table">
+                <caption class="visually-hidden">点积中两个向量对应分量的乘积和截至该项的累计和</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">分量位置</th>
+                    <th scope="col">A 分量</th>
+                    <th scope="col">B 分量</th>
+                    <th scope="col">乘积</th>
+                    <th scope="col">累计和</th>
+                  </tr>
+                </thead>
+                <tbody id="dot-product-steps"></tbody>
+              </table>
+            </div>
+
+            <div class="dot-equation-card">
+              <span>逐项乘积相加</span>
+              <code id="dot-product-equation"></code>
+            </div>
+
+            <div class="dot-result-card" aria-live="polite">
+              <div>
+                <span class="dot-result-label">点积结果</span>
+                <strong id="dot-product-value"></strong>
+              </div>
+              <span class="dot-result-shape">标量 Shape <code id="dot-result-shape">[]</code></span>
+            </div>
+
+            <p class="dot-unknown-note" id="dot-unknown-note" hidden></p>
+          </div>
+
+          <div class="dot-learning-grid">
+            <div>
+              <h3>数学</h3>
+              <p><code>a · b = Σ a[i] × b[i]</code>。这里的每个乘积，表示这两个向量在同一个分量位置上的共同贡献。</p>
+            </div>
+            <div>
+              <h3>Shape</h3>
+              <p>两个 Shape 为 <code>[3]</code> 的向量产生三个乘积；求和后只剩一个数字，Shape 写作 <code>[]</code>，表示没有维度轴，不是空数组。</p>
+            </div>
+            <div>
+              <h3>对应的核心代码</h3>
+              <pre class="dot-code"><code>let sum = 0;
+for (let i = 0; i &lt; a.length; i += 1) {
+  sum += a[i] * b[i];
+}</code></pre>
+              <p>循环每次计算一个分量的贡献，再把它加到累计和中。页面只把结果格式化到最多 6 位小数；计算值本身没有预先舍入。</p>
+            </div>
+          </div>
+        </section>
+
         <section class="learning-note" aria-labelledby="learning-title">
           <div class="learning-note-label">
             <span class="learning-dot" aria-hidden="true"></span>
             <span>本步要点</span>
           </div>
           <div>
-            <h2 id="learning-title">一个 Token，三个数字</h2>
-            <p>直觉上，Embedding 就是为每个 Token 查出一个向量。数学上可写成 <code>X[i] = embedding(tokens[i])</code>。每个向量有 3 个分量，Shape 是 <code>[3]</code>；把 N 个向量按行排列后，矩阵 Shape 是 <code>[N, 3]</code>。N 决定行数，<code>d_model</code> 决定列数。</p>
+            <h2 id="learning-title">向量 · 逐项乘积 · 累加</h2>
+            <p>回看 Phase 1–2：输入先变成 N 个 Token，再为每个位置查出一个 3 维 Embedding，并排成 Shape 为 <code>[N, 3]</code> 的矩阵 X。当前点积直接使用其中两个位置的向量。</p>
           </div>
-          <span class="learning-formula" aria-label="序列中的每一行包含三个向量分量">每行 3 个数</span>
+          <span class="learning-formula" aria-label="点积是对应分量相乘再求和">3 个乘积 → 1 个标量</span>
         </section>
       </main>
 
       <footer class="site-footer">
         <span>一个可以动手观察的 Transformer 学习实验室</span>
-        <span>Phase 01 → 02 / Embedding</span>
+        <span>Phase 01 → 02 → 03 / Dot Product</span>
       </footer>
     </div>
   </body>
