@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f5f0">
+    <title>Token Playground · Attention Lab</title>
+    <link rel="stylesheet" href="/src/styles.css">
+    <script type="module" src="/src/app.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="Attention Lab 首页">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <span>Attention Lab</span>
+        </a>
+        <span class="header-phase">PHASE 01 · TOKEN PLAYGROUND</span>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="page-title">
+          <p class="eyebrow">从一个序列开始</p>
+          <h1 id="page-title">Token Playground</h1>
+          <p class="intro-copy">先看清文本如何变成一串 Token，再观察每个位置和序列长度。这里是 Transformer 学习实验的第一步。</p>
+        </section>
+
+        <div class="workspace-grid">
+          <section class="panel input-panel" aria-labelledby="input-title">
+            <div class="panel-heading">
+              <span class="step-number" aria-hidden="true">01</span>
+              <div>
+                <p class="panel-kicker">输入</p>
+                <h2 id="input-title">写一段文本</h2>
+              </div>
+            </div>
+
+            <label class="field-label" for="token-input">待分析文本</label>
+            <textarea id="token-input" rows="4" spellcheck="false">I love my gecko</textarea>
+            <p class="input-guidance" id="tokenizer-note">教学用空白分词：按空格、Tab 或换行切分，标点保留。真实模型常使用子词 tokenizer，切分结果可能不同。</p>
+
+            <button class="primary-button" id="analyze-button" type="button">
+              <span>Analyze</span>
+              <span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+
+            <div class="examples" aria-labelledby="examples-title">
+              <p class="examples-title" id="examples-title">试试一个例子</p>
+              <div class="example-buttons">
+                <button class="example-button" type="button" data-example="I love my gecko">英文句子</button>
+                <button class="example-button" type="button" data-example="go go">重复 Token</button>
+                <button class="example-button" type="button" data-example="hello, world!">标点</button>
+                <button class="example-button" type="button" data-example="我喜欢壁虎">中文</button>
+              </div>
+            </div>
+
+            <p class="status-message" id="analysis-status" role="status" aria-live="polite"></p>
+          </section>
+
+          <section class="panel results-panel" aria-labelledby="results-title">
+            <div class="panel-heading results-heading">
+              <span class="step-number step-number--purple" aria-hidden="true">02</span>
+              <div>
+                <p class="panel-kicker">序列结果</p>
+                <h2 id="results-title">Tokens</h2>
+              </div>
+              <span class="stage-tag">当前阶段</span>
+            </div>
+
+            <p class="stale-note" id="stale-note" hidden>输入已修改：下方结果仍来自上次 Analyze。</p>
+
+            <div class="metrics" aria-label="序列信息">
+              <div class="metric-card">
+                <span class="metric-label">Sequence Length</span>
+                <span class="metric-value" id="sequence-length">4</span>
+                <span class="metric-caption">Token 数量 · N</span>
+              </div>
+              <div class="metric-card metric-card--shape">
+                <span class="metric-label">Token 序列 Shape</span>
+                <code class="shape-value" id="sequence-shape">[4]</code>
+                <span class="metric-caption">文本列表的长度</span>
+              </div>
+            </div>
+
+            <div class="shape-explanation">
+              <span class="explanation-mark" aria-hidden="true">i</span>
+              <p><strong>[N]</strong> 表示这串 Token 有 N 个位置。现在它仍是文本列表，还没有变成数值 Embedding 或 Tensor。</p>
+            </div>
+
+            <div class="token-section">
+              <div class="token-section-heading">
+                <h3>Token 序列</h3>
+                <span>点击一个位置查看详情</span>
+              </div>
+              <ul class="token-list" id="token-list" aria-label="分析得到的 Token 列表"></ul>
+            </div>
+
+            <section class="detail-card" aria-labelledby="detail-title">
+              <div class="detail-heading">
+                <div>
+                  <p class="panel-kicker">位置检查器</p>
+                  <h3 id="detail-title">Token 详情</h3>
+                </div>
+                <span class="detail-icon" aria-hidden="true">↳</span>
+              </div>
+              <p class="detail-empty" id="detail-empty">分析后点击一个 Token，这里会显示它在序列中的位置。</p>
+              <dl class="detail-grid" id="detail-content" aria-live="polite" hidden>
+                <div class="detail-token-row">
+                  <dt>Token 文本</dt>
+                  <dd class="detail-token" id="detail-token"></dd>
+                </div>
+                <div>
+                  <dt>位置索引</dt>
+                  <dd id="detail-index"></dd>
+                </div>
+                <div>
+                  <dt>序列中的第几个</dt>
+                  <dd id="detail-ordinal"></dd>
+                </div>
+                <div>
+                  <dt>Unicode 码点数</dt>
+                  <dd id="detail-code-points"></dd>
+                </div>
+              </dl>
+            </section>
+          </section>
+        </div>
+
+        <section class="learning-note" aria-labelledby="learning-title">
+          <div class="learning-note-label">
+            <span class="learning-dot" aria-hidden="true"></span>
+            <span>本步要点</span>
+          </div>
+          <div>
+            <h2 id="learning-title">先理解 N 与位置</h2>
+            <p>如果序列里有 N 个 Token，那么 <code>tokens[index]</code> 用从 0 开始的位置找到其中一个。位置说明它排在哪里，不代表它的词义；空白切出的 Token 也不一定是模型词表中的完整词。</p>
+          </div>
+          <span class="learning-formula" aria-label="序列长度等于 Token 数量">N = Token 数量</span>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>一个可以动手观察的 Transformer 学习实验室</span>
+        <span>Phase 01 / Tokenization</span>
+      </footer>
+    </div>
+  </body>
+</html>
