@@ -10,6 +10,7 @@ const publicFiles = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
   ['/src/app.js', ['src/app.js', 'text/javascript; charset=utf-8']],
+  ['/src/embedding.js', ['src/embedding.js', 'text/javascript; charset=utf-8']],
   ['/src/tokenizer.js', ['src/tokenizer.js', 'text/javascript; charset=utf-8']],
   ['/src/styles.css', ['src/styles.css', 'text/css; charset=utf-8']],
 ]);

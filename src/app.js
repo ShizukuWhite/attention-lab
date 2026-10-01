@@ -1,4 +1,5 @@
 import { analyzeText } from './tokenizer.js';
+import { embedTokens } from './embedding.js';
 
 const input = document.querySelector('#token-input');
 const analyzeButton = document.querySelector('#analyze-button');
@@ -13,8 +14,15 @@ const detailToken = document.querySelector('#detail-token');
 const detailIndex = document.querySelector('#detail-index');
 const detailOrdinal = document.querySelector('#detail-ordinal');
 const detailCodePoints = document.querySelector('#detail-code-points');
+const detailVector = document.querySelector('#detail-vector');
+const detailVectorShape = document.querySelector('#detail-vector-shape');
+const detailVectorSource = document.querySelector('#detail-vector-source');
+const embeddingShape = document.querySelector('#embedding-shape');
+const embeddingDimension = document.querySelector('#embedding-dimension');
+const embeddingMatrixBody = document.querySelector('#embedding-matrix-body');
 
 let currentAnalysis;
+let currentEmbedding;
 let selectedIndex = null;
 let lastStaleState = false;
 
@@ -29,7 +37,7 @@ function updateStaleState() {
   if (isStale !== lastStaleState) {
     setAnalysisStatus(
       isStale
-        ? '输入已修改，请点击 Analyze 更新下方结果。'
+        ? '输入已修改，请点击 Analyze 更新下方 Tokens 与 Embedding。'
         : '当前输入与最近一次分析一致。',
     );
     lastStaleState = isStale;
@@ -38,13 +46,14 @@ function updateStaleState() {
 
 function renderDetails() {
   const selectedToken = currentAnalysis.tokens.find((token) => token.index === selectedIndex);
+  const selectedEmbedding = currentEmbedding.rows.find((row) => row.index === selectedIndex);
 
-  if (!selectedToken) {
+  if (!selectedToken || !selectedEmbedding) {
     detailContent.hidden = true;
     detailEmpty.hidden = false;
     detailEmpty.textContent = currentAnalysis.tokens.length === 0
-      ? '当前序列为空：N = 0，Shape 为 [0]，没有可选 Token。'
-      : '点击一个 Token，这里会显示它在序列中的位置。';
+      ? '当前序列为空：N = 0，Token Shape 为 [0]，Embedding Shape 为 [0, 3]，没有可选 Token。'
+      : '点击一个 Token，这里会显示它的位置和对应的 Embedding 向量。';
     return;
   }
 
@@ -54,6 +63,71 @@ function renderDetails() {
   detailIndex.textContent = String(selectedToken.index);
   detailOrdinal.textContent = String(selectedToken.index + 1);
   detailCodePoints.textContent = String(selectedToken.codePointLength);
+  detailVector.textContent = `[${selectedEmbedding.vector.join(', ')}]`;
+  detailVectorShape.textContent = `[${currentEmbedding.vectorShape.join(', ')}]`;
+  detailVectorSource.textContent = selectedEmbedding.source === 'manual'
+    ? '人工设定'
+    : '未知 Token：零向量占位';
+}
+
+function renderEmbeddingMatrix() {
+  embeddingShape.textContent = `[${currentEmbedding.shape.join(', ')}]`;
+  embeddingDimension.textContent = String(currentEmbedding.dimension);
+  const fragment = document.createDocumentFragment();
+
+  if (currentEmbedding.rows.length === 0) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.className = 'matrix-empty';
+    cell.colSpan = 6;
+    cell.textContent = '当前没有矩阵行。空序列的 Embedding Shape 仍为 [0, 3]。';
+    row.append(cell);
+    embeddingMatrixBody.replaceChildren(row);
+    return;
+  }
+
+  for (const embeddingRow of currentEmbedding.rows) {
+    const row = document.createElement('tr');
+    const isSelected = embeddingRow.index === selectedIndex;
+    if (isSelected) row.classList.add('matrix-row--selected');
+
+    const position = document.createElement('td');
+    position.className = 'matrix-index';
+    position.textContent = String(embeddingRow.index);
+
+    const token = document.createElement('td');
+    token.className = 'matrix-token';
+    const tokenText = document.createElement('span');
+    tokenText.className = 'matrix-token-text';
+    tokenText.textContent = embeddingRow.text;
+    token.append(tokenText);
+    if (isSelected) {
+      const selectedMarker = document.createElement('span');
+      selectedMarker.className = 'matrix-selected-marker';
+      selectedMarker.textContent = '当前选中';
+      token.append(selectedMarker);
+    }
+
+    row.append(position, token);
+    for (const component of embeddingRow.vector) {
+      const value = document.createElement('td');
+      value.className = 'matrix-number';
+      value.textContent = String(component);
+      row.append(value);
+    }
+
+    const source = document.createElement('td');
+    source.className = embeddingRow.source === 'manual'
+      ? 'matrix-source'
+      : 'matrix-source matrix-source--unknown';
+    source.textContent = embeddingRow.source === 'manual'
+      ? '人工设定'
+      : '未知 Token：零向量占位';
+    row.append(source);
+    fragment.append(row);
+  }
+
+  embeddingMatrixBody.replaceChildren(fragment);
 }
 
 function renderTokens() {
@@ -103,7 +177,8 @@ function renderTokens() {
 }
 
 tokenList.addEventListener('click', (event) => {
-  const button = event.target.closest('button[data-token-index]');
+  const target = event.target;
+  const button = target instanceof Element ? target.closest('button[data-token-index]') : null;
   if (!button) return;
 
   selectedIndex = Number(button.dataset.tokenIndex);
@@ -114,6 +189,7 @@ tokenList.addEventListener('click', (event) => {
     tokenButton.querySelector('.token-state').textContent = isSelected ? '当前选中' : '查看详情';
   }
   renderDetails();
+  renderEmbeddingMatrix();
   updateStaleState();
 });
 
@@ -121,11 +197,13 @@ function renderAnalysis() {
   sequenceLength.textContent = String(currentAnalysis.sequenceLength);
   sequenceShape.textContent = `[${currentAnalysis.shape.join(', ')}]`;
   renderTokens();
+  renderEmbeddingMatrix();
   updateStaleState();
 }
 
 function analyzeCurrentInput(statusMessage) {
   currentAnalysis = analyzeText(input.value);
+  currentEmbedding = embedTokens(currentAnalysis.tokens);
   selectedIndex = currentAnalysis.tokens.length > 0 ? 0 : null;
   lastStaleState = false;
   renderAnalysis();
