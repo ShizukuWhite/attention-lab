@@ -1,6 +1,7 @@
 import { analyzeText } from './tokenizer.js';
 import { embedTokens } from './embedding.js';
 import { dotProductSteps } from './dot-product.js';
+import { createProjectionView } from './projection-view.js';
 
 const input = document.querySelector('#token-input');
 const analyzeButton = document.querySelector('#analyze-button');
@@ -40,6 +41,7 @@ const dotProductValue = document.querySelector('#dot-product-value');
 const dotOutputShape = document.querySelector('#dot-output-shape');
 const dotResultShape = document.querySelector('#dot-result-shape');
 const dotUnknownNote = document.querySelector('#dot-unknown-note');
+const projectionView = createProjectionView(document.querySelector('#projection-panel'));
 
 let currentAnalysis;
 let currentEmbedding;
@@ -59,8 +61,8 @@ function updateStaleState() {
   if (isStale !== lastStaleState) {
     setAnalysisStatus(
       isStale
-        ? '输入已修改；请点击 Analyze 同步 Tokens、Embedding 与点积。'
-        : 'Tokens、Embedding 与点积都来自当前输入的最近一次 Analyze。',
+        ? '输入已修改；请点击 Analyze 同步 Tokens、Embedding、点积与 Q/K/V。'
+        : 'Tokens、Embedding、点积与 Q/K/V 都来自当前输入的最近一次 Analyze。',
     );
     lastStaleState = isStale;
   }
@@ -150,6 +152,28 @@ function renderEmbeddingMatrix() {
   }
 
   embeddingMatrixBody.replaceChildren(fragment);
+}
+
+function updateEmbeddingMatrixSelection() {
+  const renderedRows = embeddingMatrixBody.querySelectorAll('tr');
+  currentEmbedding.rows.forEach((embeddingRow, rowIndex) => {
+    const row = renderedRows[rowIndex];
+    if (!row) return;
+
+    const isSelected = embeddingRow.index === selectedIndex;
+    row.classList.toggle('matrix-row--selected', isSelected);
+    const tokenCell = row.querySelector('.matrix-token');
+    let marker = tokenCell.querySelector('.matrix-selected-marker');
+
+    if (isSelected && !marker) {
+      marker = document.createElement('span');
+      marker.className = 'matrix-selected-marker';
+      marker.textContent = '当前选中';
+      tokenCell.append(marker);
+    } else if (!isSelected && marker) {
+      marker.remove();
+    }
+  });
 }
 
 function formatDotNumber(value) {
@@ -309,7 +333,7 @@ tokenList.addEventListener('click', (event) => {
     tokenButton.querySelector('.token-state').textContent = isSelected ? '当前选中' : '查看详情';
   }
   renderDetails();
-  renderEmbeddingMatrix();
+  updateEmbeddingMatrixSelection();
   updateStaleState();
 });
 
@@ -330,6 +354,7 @@ function renderAnalysis() {
   renderTokens();
   renderEmbeddingMatrix();
   renderDotProduct();
+  projectionView.render(currentEmbedding);
   updateStaleState();
 }
 
@@ -343,7 +368,7 @@ function analyzeCurrentInput(statusMessage) {
     : pairLeftIndex;
   lastStaleState = false;
   renderAnalysis();
-  setAnalysisStatus(`${statusMessage}：当前有 ${currentAnalysis.sequenceLength} 个 Token；Tokens、Embedding 与点积已同步。`);
+  setAnalysisStatus(`${statusMessage}：当前有 ${currentAnalysis.sequenceLength} 个 Token；Tokens、Embedding、点积与 Q/K/V 已同步。`);
 }
 
 analyzeButton.addEventListener('click', () => {
