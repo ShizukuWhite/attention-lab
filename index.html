@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f5f0">
-    <title>Token Playground · Attention Lab</title>
+    <title>Embedding Playground · Attention Lab</title>
     <link rel="stylesheet" href="/src/styles.css">
     <script type="module" src="/src/app.js"></script>
   </head>
@@ -15,14 +15,14 @@
           <span class="brand-mark" aria-hidden="true">A</span>
           <span>Attention Lab</span>
         </a>
-        <span class="header-phase">PHASE 01 · TOKEN PLAYGROUND</span>
+        <span class="header-phase">PHASE 02 · EMBEDDING PLAYGROUND</span>
       </header>
 
       <main>
         <section class="intro" aria-labelledby="page-title">
-          <p class="eyebrow">从一个序列开始</p>
-          <h1 id="page-title">Token Playground</h1>
-          <p class="intro-copy">先看清文本如何变成一串 Token，再观察每个位置和序列长度。这里是 Transformer 学习实验的第一步。</p>
+          <p class="eyebrow">从符号到数字</p>
+          <h1 id="page-title">Embedding Playground</h1>
+          <p class="intro-copy">为每个 Token 查出一个小向量，再把这些向量按位置排成矩阵。观察一个序列如何从文本变成数值表示。</p>
         </section>
 
         <div class="workspace-grid">
@@ -48,7 +48,7 @@
               <p class="examples-title" id="examples-title">试试一个例子</p>
               <div class="example-buttons">
                 <button class="example-button" type="button" data-example="I love my gecko">英文句子</button>
-                <button class="example-button" type="button" data-example="go go">重复 Token</button>
+                <button class="example-button" type="button" data-example="love love">重复 Token</button>
                 <button class="example-button" type="button" data-example="hello, world!">标点</button>
                 <button class="example-button" type="button" data-example="我喜欢壁虎">中文</button>
               </div>
@@ -67,7 +67,7 @@
               <span class="stage-tag">当前阶段</span>
             </div>
 
-            <p class="stale-note" id="stale-note" hidden>输入已修改：下方结果仍来自上次 Analyze。</p>
+            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens 与 Embedding 都仍来自上次 Analyze。</p>
 
             <div class="metrics" aria-label="序列信息">
               <div class="metric-card">
@@ -84,7 +84,7 @@
 
             <div class="shape-explanation">
               <span class="explanation-mark" aria-hidden="true">i</span>
-              <p><strong>[N]</strong> 表示这串 Token 有 N 个位置。现在它仍是文本列表，还没有变成数值 Embedding 或 Tensor。</p>
+              <p><strong>[N]</strong> 表示 Token 文本列表有 N 个位置。下方的 <strong>X</strong> 才是把这些位置查表后得到的数值矩阵。</p>
             </div>
 
             <div class="token-section">
@@ -121,10 +121,57 @@
                   <dt>Unicode 码点数</dt>
                   <dd id="detail-code-points"></dd>
                 </div>
+                <div class="detail-vector-row">
+                  <dt>Embedding 向量</dt>
+                  <dd><code id="detail-vector"></code></dd>
+                </div>
+                <div>
+                  <dt>向量 Shape</dt>
+                  <dd id="detail-vector-shape"></dd>
+                </div>
+                <div class="detail-vector-source-row">
+                  <dt>向量来源</dt>
+                  <dd id="detail-vector-source"></dd>
+                </div>
               </dl>
             </section>
           </section>
         </div>
+
+        <section class="panel embedding-panel" aria-labelledby="embedding-title">
+          <div class="panel-heading embedding-heading">
+            <span class="step-number step-number--purple" aria-hidden="true">03</span>
+            <div>
+              <p class="panel-kicker">数值表示</p>
+              <h2 id="embedding-title">Embedding 矩阵 X</h2>
+            </div>
+            <span class="matrix-equation">X Shape <code id="embedding-shape">[4, 3]</code></span>
+          </div>
+
+          <div class="matrix-intro">
+            <p>每一行对应一个 Token 位置，每一列是这个向量的一个分量。</p>
+            <span class="dimension-chip"><code>d_model = <span id="embedding-dimension">3</span></code></span>
+          </div>
+
+          <div class="matrix-table-scroll" role="region" aria-label="Embedding 矩阵 X，必要时可水平滚动" tabindex="0">
+            <table class="matrix-table">
+              <caption class="visually-hidden">Embedding 矩阵 X 的位置、Token、三个向量分量和向量来源</caption>
+              <thead>
+                <tr>
+                  <th scope="col">位置</th>
+                  <th scope="col">Token</th>
+                  <th scope="col">分量 0</th>
+                  <th scope="col">分量 1</th>
+                  <th scope="col">分量 2</th>
+                  <th scope="col">来源</th>
+                </tr>
+              </thead>
+              <tbody id="embedding-matrix-body"></tbody>
+            </table>
+          </div>
+
+          <p class="manual-vector-note">这些向量由人工设定，用于观察数据形状，不来自训练模型。未知 Token 使用零向量占位；相同的零向量不代表词义相同。</p>
+        </section>
 
         <section class="learning-note" aria-labelledby="learning-title">
           <div class="learning-note-label">
@@ -132,16 +179,16 @@
             <span>本步要点</span>
           </div>
           <div>
-            <h2 id="learning-title">先理解 N 与位置</h2>
-            <p>如果序列里有 N 个 Token，那么 <code>tokens[index]</code> 用从 0 开始的位置找到其中一个。位置说明它排在哪里，不代表它的词义；空白切出的 Token 也不一定是模型词表中的完整词。</p>
+            <h2 id="learning-title">一个 Token，三个数字</h2>
+            <p>直觉上，Embedding 就是为每个 Token 查出一个向量。数学上可写成 <code>X[i] = embedding(tokens[i])</code>。每个向量有 3 个分量，Shape 是 <code>[3]</code>；把 N 个向量按行排列后，矩阵 Shape 是 <code>[N, 3]</code>。N 决定行数，<code>d_model</code> 决定列数。</p>
           </div>
-          <span class="learning-formula" aria-label="序列长度等于 Token 数量">N = Token 数量</span>
+          <span class="learning-formula" aria-label="序列中的每一行包含三个向量分量">每行 3 个数</span>
         </section>
       </main>
 
       <footer class="site-footer">
         <span>一个可以动手观察的 Transformer 学习实验室</span>
-        <span>Phase 01 / Tokenization</span>
+        <span>Phase 01 → 02 / Embedding</span>
       </footer>
     </div>
   </body>
