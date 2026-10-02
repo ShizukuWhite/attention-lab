@@ -14,7 +14,7 @@ cd attention-lab
 node server.mjs
 ```
 
-然后访问 <http://127.0.0.1:3000>。在 Windows 上也可以双击 `start.cmd`。启动脚本会先查找 PATH 中的 Node.js，再尝试当前用户的 Codex Node.js 运行时缓存；如果都找不到，它会说明需要安装 Node.js 24 或将 `node` 加入 PATH。服务只监听本机地址，并且只提供页面需要的静态文件。回到运行服务的终端按 `Ctrl+C` 即可停止。
+然后访问 <http://127.0.0.1:3000>。在 Windows 上也可以双击 `start.cmd`。启动脚本会先查找 PATH 中的 Node.js，再尝试当前用户的 Codex Node.js 运行时缓存；如果都找不到，它会说明需要安装 Node.js 24 或将 `node` 加入 PATH；启动出错时窗口会保留错误信息，按任意键后关闭。服务只监听本机地址和 3000 端口，并且只提供页面需要的静态文件；若出现 `EADDRINUSE`，表示 3000 端口已被占用，请先在旧服务窗口按 `Ctrl+C` 停止服务后再运行。服务运行成功后，按 `Ctrl+C` 即可停止。
 
 运行项目测试（同样在仓库根目录执行）：
 
