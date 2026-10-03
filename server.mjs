@@ -17,6 +17,8 @@ const publicFiles = new Map([
   ['/src/matrix-multiply.js', ['src/matrix-multiply.js', 'text/javascript; charset=utf-8']],
   ['/src/projection.js', ['src/projection.js', 'text/javascript; charset=utf-8']],
   ['/src/projection-view.js', ['src/projection-view.js', 'text/javascript; charset=utf-8']],
+  ['/src/scaled-attention.js', ['src/scaled-attention.js', 'text/javascript; charset=utf-8']],
+  ['/src/scaled-attention-view.js', ['src/scaled-attention-view.js', 'text/javascript; charset=utf-8']],
   ['/src/tokenizer.js', ['src/tokenizer.js', 'text/javascript; charset=utf-8']],
   ['/src/styles.css', ['src/styles.css', 'text/css; charset=utf-8']],
 ]);

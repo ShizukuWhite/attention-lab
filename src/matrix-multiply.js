@@ -1,6 +1,6 @@
 import { dotProductSteps } from './dot-product.js';
 
-function validateMatrix(value, label) {
+export function validateMatrix(value, label) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(`${label} must be a matrix object.`);
   }

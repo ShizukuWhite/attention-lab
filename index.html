@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f5f0">
-    <title>Attention Score Playground · Attention Lab</title>
+    <title>Scaled Attention Playground · Attention Lab</title>
     <link rel="stylesheet" href="/src/styles.css">
     <script type="module" src="/src/app.js"></script>
   </head>
@@ -15,14 +15,14 @@
           <span class="brand-mark" aria-hidden="true">A</span>
           <span>Attention Lab</span>
         </a>
-        <span class="header-phase">PHASE 05 · ATTENTION SCORE</span>
+        <span class="header-phase">PHASE 06 · SCALED ATTENTION</span>
       </header>
 
       <main>
         <section class="intro" aria-labelledby="page-title">
-          <p class="eyebrow">从 Q / K 投影到原始分数矩阵</p>
-          <h1 id="page-title">Attention Score Playground</h1>
-          <p class="intro-copy">把每个 Query 位置与每个 Key 位置配对，观察完整的 S = QKᵀ 数字矩阵，并拆解任意一个分数。</p>
+          <p class="eyebrow">从原始分数到权重，再汇总 Value</p>
+          <h1 id="page-title">Scaled Dot-Product Attention</h1>
+          <p class="intro-copy">沿着同一次 Analyze 的 QKᵀ 分数，逐步检查缩放、按行 Softmax 与 V 加权求和；点击权重行和输出格追踪完整路径。</p>
         </section>
 
         <div class="workspace-grid">
@@ -67,7 +67,7 @@
               <span class="stage-tag">当前阶段</span>
             </div>
 
-            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens、Embedding、点积、Q/K/V 与原始分数矩阵都仍来自上次 Analyze。</p>
+            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens、Embedding、Q/K/V、原始分数与 Scaled Attention 都仍来自上次 Analyze。</p>
 
             <div class="metrics" aria-label="序列信息">
               <div class="metric-card">
@@ -453,12 +453,12 @@ const steps = dotProductSteps(xRow, wColumn);</code></pre>
             <span class="matrix-equation">输出 Shape <code id="attention-score-s-shape">[4, 4]</code></span>
           </div>
 
-          <p class="attention-score-intro">Q 的每一行对应一个 Query 位置；K 的每一行对应一个 Key 位置，转置后成为 Kᵀ 的一列。每个格子用一个 Query 向量与一个 Key 向量做点积；V 保留在上方展示，但不参与这一步计算。</p>
+          <p class="attention-score-intro">Q 的每一行对应一个 Query 位置；K 的每一行对应一个 Key 位置，转置后成为 Kᵀ 的一列。每个格子用一个 Query 向量与一个 Key 向量做点积；本阶段只计算 raw score，缩放与 V 组合见下方 Phase 6。</p>
           <div class="attention-score-flow-card">
             <span>矩阵乘法与 Shape</span>
             <code id="attention-score-flow">Q [4, 2] × Kᵀ [2, 4] → S [4, 4]</code>
             <p>对自注意力输入，N 个 Query 位置与 N 个 Key 位置两两配对。中间分量 t 被求和，留下 Query 与 Key 两个位置轴。</p>
-            <span class="attention-score-retained-v">保留的 V Shape <code id="attention-score-v-shape">[4, 2]</code> · V 不参与当前分数计算</span>
+            <span class="attention-score-retained-v">保留的 V Shape <code id="attention-score-v-shape">[4, 2]</code> · V 在本阶段尚未参与分数计算</span>
           </div>
 
           <section class="attention-score-subsection" aria-labelledby="attention-score-kt-title">
@@ -564,10 +564,148 @@ const steps = dotProductSteps(xRow, wColumn);</code></pre>
               <h3>核心代码</h3>
               <pre class="dot-code attention-score-code"><code>const KT = transposeMatrix(K);
 const S = multiplyMatrices(Q, KT);</code></pre>
-              <p>页面沿用矩阵乘法和点积追踪；计算保留完整精度，只在显示时最多保留 6 位小数。此处尚未做缩放、Softmax 或 V 加权求和。</p>
+              <p>页面沿用矩阵乘法和点积追踪；计算保留完整精度，只在显示时最多保留 6 位小数。Phase 5 到此得到 S；后续缩放与 V 加权求和由 Phase 6 展示。</p>
             </div>
           </div>
-          <p class="attention-score-v-note">V 保留在 Phase 4 的投影表中用于后续学习；它不参与当前的 QKᵀ 分数计算。</p>
+          <p class="attention-score-v-note">V 保留在 Phase 4 的投影表中；缩放分数、权重与 V 的加权组合见下方 Phase 6。</p>
+        </section>
+
+        <section class="panel scaled-attention-panel" id="scaled-attention-panel" aria-labelledby="scaled-attention-title">
+          <div class="panel-heading scaled-attention-heading">
+            <span class="step-number step-number--purple" aria-hidden="true">07</span>
+            <div>
+              <p class="panel-kicker">Phase 6 · 完整 Scaled Dot-Product Attention</p>
+              <h2 id="scaled-attention-title">O = softmax_rows(S / √d_k) V</h2>
+            </div>
+            <span class="matrix-equation">输出 Shape <code id="scaled-attention-output-shape">[4, 2]</code></span>
+          </div>
+
+          <p class="scaled-attention-intro">先用 key 向量维度缩放 raw score，再让每个 Query 对所有 Key 位置分配权重，最后用这些权重加权组合投影后的 V。本例的 <code>d_k</code> 是 Q 的列数 2，与 Token 数 N 无关。</p>
+          <div class="scaled-attention-flow-card">
+            <span>同一次 Analyze 的矩阵与 Shape 流</span>
+            <code id="scaled-attention-flow">Q [4, 2] × Kᵀ [2, 4] → S [4, 4] → scaled [4, 4] → A [4, 4] × V [4, 2] → O [4, 2]</code>
+            <p><code id="scaled-attention-d-k">d_k = Q.shape[1] = 2</code> · <code id="scaled-attention-scale">√d_k = √2 ≈ 1.414214</code> · 所有表格显示最多 6 位小数，标为近似；内部计算不提前舍入。</p>
+          </div>
+
+          <div class="scaled-attention-matrix-grid">
+            <section class="scaled-attention-subsection" aria-labelledby="scaled-attention-scaled-title">
+              <div class="scaled-attention-section-heading">
+                <div><p class="panel-kicker">01 · 缓和分数尺度</p><h3 id="scaled-attention-scaled-title">缩放后的分数</h3></div>
+                <span class="projection-shape-flow">scaled Shape <code id="scaled-attention-scaled-shape">[4, 4]</code></span>
+              </div>
+              <p class="scaled-attention-supporting-copy"><code>scaled = S / √d_k</code>。维度增大时，点积的典型尺度也会增长；除以 <code>√d_k</code> 能缓和这种增长。Raw 与 scaled score 都还不是权重。</p>
+              <div class="scaled-attention-table-scroll" role="region" aria-label="缩放后的分数矩阵，行是 Query 位置，列是 Key 位置；可水平滚动" tabindex="0">
+                <table class="scaled-attention-table">
+                  <caption class="visually-hidden">缩放后的分数矩阵，行是 Query 位置，列是 Key 位置</caption>
+                  <thead><tr id="scaled-attention-scaled-head"></tr></thead>
+                  <tbody id="scaled-attention-scaled-body"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="scaled-attention-subsection" aria-labelledby="scaled-attention-weights-title">
+              <div class="scaled-attention-section-heading">
+                <div><p class="panel-kicker">02 · 每个 Query 单独归一化</p><h3 id="scaled-attention-weights-title">A · Attention Weight</h3></div>
+                <span class="projection-shape-flow">A Shape <code id="scaled-attention-weights-shape">[4, 4]</code></span>
+              </div>
+              <p class="scaled-attention-supporting-copy">Softmax 沿每一条 Query 行，对这行包含的所有 Key 位置归一化；不跨整张矩阵，也不按列归一化。计算前减去该行最大值只为稳定指数，不改变数学上的 Softmax。</p>
+              <div class="scaled-attention-table-scroll" role="region" aria-label="Attention Weight 矩阵，点击左侧 Query 行选择追踪；可水平滚动" tabindex="0">
+                <table class="scaled-attention-table">
+                  <caption class="visually-hidden">Attention Weight 矩阵，行是 Query，列是 Key；左侧 Query 行标题可选择</caption>
+                  <thead><tr id="scaled-attention-weights-head"></tr></thead>
+                  <tbody id="scaled-attention-weights-body"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="scaled-attention-subsection" aria-labelledby="scaled-attention-output-title">
+              <div class="scaled-attention-section-heading">
+                <div><p class="panel-kicker">03 · 对 V 做加权组合</p><h3 id="scaled-attention-output-title">O · Attention Output</h3></div>
+                <span class="projection-shape-flow">O Shape <code id="scaled-attention-output-shape-summary">[4, 2]</code></span>
+              </div>
+              <p class="scaled-attention-supporting-copy">O 的每一行是投影 V 向量的加权组合。O 不是概率向量：分量可以为负，行内分量之和也不要求等于 1。</p>
+              <div class="scaled-attention-table-scroll" role="region" aria-label="Attention Output 矩阵，点击数值格选择 Query 行与输出分量；可水平滚动" tabindex="0">
+                <table class="scaled-attention-table scaled-attention-output-table">
+                  <caption class="visually-hidden">Attention Output 矩阵，行是 Query 位置，列是输出分量；每个数值格可选择</caption>
+                  <thead><tr id="scaled-attention-output-head"></tr></thead>
+                  <tbody id="scaled-attention-output-body"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <p class="scaled-attention-selection-help">点击权重表左侧 Query 行切换本阶段两项追踪；点击输出格同时选择 Query 行与输出分量。本阶段选择与上方各阶段独立。</p>
+          <p class="scaled-attention-selected" id="scaled-attention-selected" aria-live="polite" hidden></p>
+          <p class="scaled-attention-empty-note" id="scaled-attention-empty-note" hidden></p>
+
+          <section class="scaled-attention-trace" id="scaled-attention-trace" aria-labelledby="scaled-attention-trace-title" aria-live="polite" hidden>
+            <div class="scaled-attention-trace-heading">
+              <div><p class="panel-kicker">所选 Query 的两条计算路径</p><h3 id="scaled-attention-trace-title">Softmax 行与输出格追踪</h3></div>
+              <span class="projection-trace-route">显示近似值 · 内部保留完整精度</span>
+            </div>
+
+            <section class="scaled-attention-trace-subsection" aria-labelledby="scaled-attention-row-title">
+              <div class="scaled-attention-section-heading">
+                <div><h4 id="scaled-attention-row-title">Query 行 0</h4></div>
+                <span class="projection-shape-flow">稳定形式：<code>exp(z_j - m) / Σₖ exp(z_k - m)</code></span>
+              </div>
+              <div class="scaled-attention-row-summary">
+                <span>当前行最大值 m：<code id="scaled-attention-row-max"></code></span>
+                <span>指数分母：<code id="scaled-attention-row-denominator"></code></span>
+                <span>完整行权重和：<code id="scaled-attention-row-weight-sum"></code></span>
+                <span>完整权重行 A[i, :]：<code id="scaled-attention-row-weight-list"></code></span>
+              </div>
+              <div class="scaled-attention-table-scroll" role="region" aria-label="所选 Query 行的逐 Key 缩放与 Softmax 步骤，可水平滚动" tabindex="0">
+                <table class="scaled-attention-table scaled-attention-steps-table">
+                  <caption class="visually-hidden">每个 Key 位置的 raw score、缩放、减最大值、指数与 Attention Weight</caption>
+                  <thead><tr>
+                    <th scope="col">Key 位置与来源 j</th><th scope="col">原始 S[i,j]</th><th scope="col">÷ √d_k</th><th scope="col">scaled z_j</th><th scope="col">z_j − m</th><th scope="col">exp(z_j − m)</th><th scope="col">÷ 当前行分母</th><th scope="col">weight A[i,j]</th>
+                  </tr></thead>
+                  <tbody id="scaled-attention-row-steps"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="scaled-attention-trace-subsection" aria-labelledby="scaled-attention-output-trace-title">
+              <div class="scaled-attention-section-heading">
+                <div><h4 id="scaled-attention-output-trace-title"><span id="scaled-attention-output-trace-cell">O[0, 0]</span> · 加权 Value</h4><p class="scaled-attention-supporting-copy" id="scaled-attention-output-trace-query"></p></div>
+                <span class="projection-shape-flow" id="scaled-attention-output-trace-route"></span>
+              </div>
+              <div class="scaled-attention-value-grid">
+                <div class="scaled-attention-table-scroll" role="region" aria-label="当前输出分量对应的 V 列向量，按 Key 位置排列；可水平滚动" tabindex="0">
+                  <table class="scaled-attention-table scaled-attention-v-column-table">
+                    <caption class="visually-hidden">当前 V 输出分量组成的列向量</caption>
+                    <thead><tr id="scaled-attention-v-column-head"></tr></thead>
+                    <tbody id="scaled-attention-v-column-body"></tbody>
+                  </table>
+                </div>
+                <div class="scaled-attention-value-meta">
+                  <span>列向量 Shape <code id="scaled-attention-v-column-shape">[4]</code></span>
+                  <span id="scaled-attention-v-column-label">当前 V 输出分量 c = 0，来源 V = XWv</span>
+                  <span>输出格 O[i,c]：<strong id="scaled-attention-output-trace-value"></strong> · Shape <code>[]</code></span>
+                </div>
+              </div>
+              <div class="scaled-attention-table-scroll" role="region" aria-label="所选 Attention 输出格逐 Key 位置的权重、V 值、乘积与累计和，可水平滚动" tabindex="0">
+                <table class="scaled-attention-table scaled-attention-steps-table">
+                  <caption class="visually-hidden">A 行乘以 V 当前列，每个 Key 位置贡献一个乘积并累加</caption>
+                  <thead><tr><th scope="col">Key 位置 j</th><th scope="col">Token 来源</th><th scope="col">weight A[i,j]</th><th scope="col">V[j,c]</th><th scope="col">乘积</th><th scope="col">累计和</th></tr></thead>
+                  <tbody id="scaled-attention-output-steps"></tbody>
+                </table>
+              </div>
+              <div class="dot-equation-card projection-equation-card scaled-attention-equation-card"><span>按位置加权并求和</span><code id="scaled-attention-output-equation"></code></div>
+              <p class="scaled-attention-unknown-note" id="scaled-attention-unknown-note" hidden></p>
+            </section>
+          </section>
+
+          <div class="scaled-attention-learning-grid">
+            <div><h3>直觉</h3><p>除以 <code>√d_k</code> 缓和维度增长带来的分数尺度变化。Raw 与 scaled score 是分数；只有 Softmax 后的逐行结果 A 才是这里的权重。</p></div>
+            <div><h3>数学</h3><p><code>A[i,j] = exp(z_j − m) / Σₖ exp(z_k − m)</code>，其中 <code>z=S[i,:]/√d_k</code>、<code>m=max(z)</code>。减去同一行最大值只改善指数计算稳定性，不改变权重。</p></div>
+            <div><h3>Shape</h3><p><code>Q [N, 2] × Kᵀ [2, N] → S [N, N] → scaled [N, N] → A [N, N] × V [N, 2] → O [N, 2]</code>。对 V 的 Key 轴求和后，保留 Query 位置和 Value 分量。</p></div>
+            <div><h3>核心代码</h3><pre class="dot-code scaled-attention-code"><code>const scaled = scaleScores(S, dK);
+const { weights: A } = softmaxRows(scaled);
+const O = multiplyMatrices(A, V);</code></pre><p>本页的 softmax 对每个 Query 行单独执行；结果向量来自同一次 Analyze 的 V。</p></div>
+          </div>
+          <p class="scaled-attention-unknown-note">未知 Token 使用人工零向量占位，不做语义推断：未知 Query 的 score 行全 0，因此得到均匀权重，但组合已知 V 后输出通常非零；未知 Key 的 0 score 仍可能得到非零权重，其对应 V 为 0，所以该位置贡献为 0。</p>
         </section>
 
         <section class="learning-note" aria-labelledby="learning-title">
@@ -576,16 +714,16 @@ const S = multiplyMatrices(Q, KT);</code></pre>
             <span>本步要点</span>
           </div>
           <div>
-            <h2 id="learning-title">位置配对 · 原始分数 · N × N</h2>
-            <p>固定投影产生 Q、K、V；对每个 Query 位置和 Key 位置做一次点积，得到有方向的原始分数 S = QKᵀ。V 保留展示但暂不参与计算。</p>
+            <h2 id="learning-title">缩放 · 逐行权重 · Value 加权组合</h2>
+            <p>固定投影产生 Q、K、V；Phase 5 得到 S = QKᵀ，Phase 6 再缩放并逐行归一化为 A，最后以 A 加权组合 V 得到 O。</p>
           </div>
-          <span class="learning-formula" aria-label="Query 与转置 Key 相乘得到原始分数矩阵">Q [N, 2] × Kᵀ [2, N] → S [N, N]</span>
+          <span class="learning-formula" aria-label="对缩放分数逐 Query 行执行 Softmax，再乘 Value 矩阵">O = softmax_rows(S / √d_k) V</span>
         </section>
       </main>
 
       <footer class="site-footer">
         <span>一个可以动手观察的 Transformer 学习实验室</span>
-        <span>Phase 01 → 02 → 03 → 04 → 05 / QKᵀ</span>
+        <span>Phase 01 → 02 → 03 → 04 → 05 → 06 / Scaled Attention</span>
       </footer>
     </div>
   </body>
