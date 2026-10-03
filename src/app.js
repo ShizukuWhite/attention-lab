@@ -5,6 +5,8 @@ import { projectQKV } from './projection.js';
 import { computeAttentionScores } from './attention-score.js';
 import { createProjectionView } from './projection-view.js';
 import { createAttentionScoreView } from './attention-score-view.js';
+import { computeScaledAttention } from './scaled-attention.js';
+import { createScaledAttentionView } from './scaled-attention-view.js';
 
 const input = document.querySelector('#token-input');
 const analyzeButton = document.querySelector('#analyze-button');
@@ -46,11 +48,13 @@ const dotResultShape = document.querySelector('#dot-result-shape');
 const dotUnknownNote = document.querySelector('#dot-unknown-note');
 const projectionView = createProjectionView(document.querySelector('#projection-panel'));
 const attentionScoreView = createAttentionScoreView(document.querySelector('#attention-score-panel'));
+const scaledAttentionView = createScaledAttentionView(document.querySelector('#scaled-attention-panel'));
 
 let currentAnalysis;
 let currentEmbedding;
 let currentProjections;
 let currentScores;
+let currentScaledAttention;
 let selectedIndex = null;
 let pairLeftIndex = null;
 let pairRightIndex = null;
@@ -67,8 +71,8 @@ function updateStaleState() {
   if (isStale !== lastStaleState) {
     setAnalysisStatus(
       isStale
-        ? '输入已修改；请点击 Analyze 同步 Tokens、Embedding、点积、Q/K/V 与原始分数矩阵。'
-        : 'Tokens、Embedding、点积、Q/K/V 与原始分数矩阵都来自当前输入的最近一次 Analyze。',
+        ? '输入已修改；请点击 Analyze 同步 Tokens、Embedding、点积、Q/K/V、原始分数与 Scaled Attention。'
+        : 'Tokens、Embedding、点积、Q/K/V、原始分数与 Scaled Attention 都来自当前输入的最近一次 Analyze。',
     );
     lastStaleState = isStale;
   }
@@ -362,6 +366,7 @@ function renderAnalysis() {
   renderDotProduct();
   projectionView.render(currentEmbedding, currentProjections);
   attentionScoreView.render(currentEmbedding, currentProjections, currentScores);
+  scaledAttentionView.render(currentEmbedding, currentProjections, currentScores, currentScaledAttention);
   updateStaleState();
 }
 
@@ -370,6 +375,11 @@ function analyzeCurrentInput(statusMessage) {
   currentEmbedding = embedTokens(currentAnalysis.tokens);
   currentProjections = projectQKV({ matrix: currentEmbedding.matrix, shape: currentEmbedding.shape });
   currentScores = computeAttentionScores(currentProjections.Q, currentProjections.K);
+  currentScaledAttention = computeScaledAttention(
+    currentScores.S,
+    currentProjections.V,
+    currentProjections.Q.shape[1],
+  );
   selectedIndex = currentAnalysis.tokens.length > 0 ? 0 : null;
   pairLeftIndex = currentEmbedding.rows.length > 0 ? currentEmbedding.rows[0].index : null;
   pairRightIndex = currentEmbedding.rows.length > 1
@@ -377,7 +387,7 @@ function analyzeCurrentInput(statusMessage) {
     : pairLeftIndex;
   lastStaleState = false;
   renderAnalysis();
-  setAnalysisStatus(`${statusMessage}：当前有 ${currentAnalysis.sequenceLength} 个 Token；Tokens、Embedding、点积、Q/K/V 与原始分数矩阵已同步。`);
+  setAnalysisStatus(`${statusMessage}：当前有 ${currentAnalysis.sequenceLength} 个 Token；Tokens、Embedding、点积、Q/K/V、原始分数与 Scaled Attention 已同步。`);
 }
 
 analyzeButton.addEventListener('click', () => {
