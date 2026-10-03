@@ -1,5 +1,5 @@
 import { matrixCellSteps } from './matrix-multiply.js';
-import { PROJECTION_WEIGHTS, projectQKV } from './projection.js';
+import { PROJECTION_WEIGHTS } from './projection.js';
 
 const OUTPUTS = ['Q', 'K', 'V'];
 const WEIGHT_FOR_OUTPUT = { Q: 'Wq', K: 'Wk', V: 'Wv' };
@@ -21,7 +21,7 @@ function sourceLabel(source) {
  * Create the DOM view for Q/K/V projections.
  *
  * @param {Element} root
- * @returns {{ render(embedding: { matrix: number[][], shape: [number, number], rows: Array<{ text: string, index: number, source: 'manual' | 'unknown' }> }): void }}
+ * @returns {{ render(embedding: { matrix: number[][], shape: [number, number], rows: Array<{ text: string, index: number, source: 'manual' | 'unknown' }> }, projections: { Q: { matrix: number[][], shape: [number, number] }, K: { matrix: number[][], shape: [number, number] }, V: { matrix: number[][], shape: [number, number] } }): void }}
  */
 export function createProjectionView(root) {
   const document = root.ownerDocument;
@@ -243,9 +243,9 @@ export function createProjectionView(root) {
     renderTrace();
   }
 
-  function render(embedding) {
+  function render(embedding, projections) {
     currentEmbedding = embedding;
-    projected = projectQKV({ matrix: embedding.matrix, shape: embedding.shape });
+    projected = projections;
     selection = embedding.rows.length > 0
       ? { output: 'Q', row: 0, column: 0 }
       : null;
