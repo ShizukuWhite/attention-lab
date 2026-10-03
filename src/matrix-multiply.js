@@ -53,6 +53,26 @@ function validatePair(leftValue, rightValue) {
   return { left, right, dimension: left.columns };
 }
 
+/**
+ * Transpose a dense matrix while retaining its declared dimensions, including
+ * dimensions that cannot be inferred from an empty outer array.
+ *
+ * @param {{ matrix: number[][], shape: [number, number] }} value
+ * @returns {{ matrix: number[][], shape: [number, number] }}
+ */
+export function transposeMatrix(value) {
+  const { matrix: input, rows, columns } = validateMatrix(value, 'Input');
+  const matrix = Array.from({ length: columns }, () => []);
+
+  for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+    for (let columnIndex = 0; columnIndex < columns; columnIndex += 1) {
+      matrix[columnIndex].push(input[rowIndex][columnIndex]);
+    }
+  }
+
+  return { matrix, shape: [columns, rows] };
+}
+
 function readColumn(matrix, dimension, column) {
   const values = [];
   for (let index = 0; index < dimension; index += 1) {

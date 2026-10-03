@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f5f0">
-    <title>Q K V Projection Playground · Attention Lab</title>
+    <title>Attention Score Playground · Attention Lab</title>
     <link rel="stylesheet" href="/src/styles.css">
     <script type="module" src="/src/app.js"></script>
   </head>
@@ -15,14 +15,14 @@
           <span class="brand-mark" aria-hidden="true">A</span>
           <span>Attention Lab</span>
         </a>
-        <span class="header-phase">PHASE 04 · Q / K / V PROJECTION</span>
+        <span class="header-phase">PHASE 05 · ATTENTION SCORE</span>
       </header>
 
       <main>
         <section class="intro" aria-labelledby="page-title">
-          <p class="eyebrow">从 Embedding 到 Q / K / V</p>
-          <h1 id="page-title">Q / K / V Projection Playground</h1>
-          <p class="intro-copy">让同一个 Embedding 矩阵 X 分别经过三组小权重，观察 Q、K、V 的每个数字和 Shape 如何产生。</p>
+          <p class="eyebrow">从 Q / K 投影到原始分数矩阵</p>
+          <h1 id="page-title">Attention Score Playground</h1>
+          <p class="intro-copy">把每个 Query 位置与每个 Key 位置配对，观察完整的 S = QKᵀ 数字矩阵，并拆解任意一个分数。</p>
         </section>
 
         <div class="workspace-grid">
@@ -67,7 +67,7 @@
               <span class="stage-tag">当前阶段</span>
             </div>
 
-            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens、Embedding、点积与 Q/K/V 都仍来自上次 Analyze。</p>
+            <p class="stale-note" id="stale-note" hidden>输入已修改：下方 Tokens、Embedding、点积、Q/K/V 与原始分数矩阵都仍来自上次 Analyze。</p>
 
             <div class="metrics" aria-label="序列信息">
               <div class="metric-card">
@@ -280,7 +280,7 @@ for (let i = 0; i &lt; a.length; i += 1) {
             <span class="matrix-equation">输出 Shape <code id="projection-output-shape">[4, 2]</code></span>
           </div>
 
-          <p class="projection-intro">直觉上，同一份 X 用不同权重重新组合每个 Token 的三个分量，因此得到三种表示。Q 是后续发出查询的表示，K 是后续被匹配的表示，V 是后续被汇总的内容；本阶段只生成它们，还没有 Token 之间的匹配或汇总。所有 Embedding 和权重都是未训练的教学数字。</p>
+          <p class="projection-intro">直觉上，同一份 X 用不同权重重新组合每个 Token 的三个分量，因此得到三种表示。Q 是发出查询的表示，K 是被匹配的表示，V 是后续被汇总的内容；下方 Phase 5 会使用 Q 和 K 计算原始分数。所有 Embedding 和权重都是未训练的教学数字。</p>
 
           <div class="projection-formulas" aria-label="Q K V 投影公式">
             <span>数学</span>
@@ -423,7 +423,7 @@ for (let i = 0; i &lt; a.length; i += 1) {
           <div class="projection-learning-grid">
             <div>
               <h3>直觉</h3>
-              <p>同一 X 使用三组不同权重。Q、K、V 的名字表示它们在后续 Attention 中将承担的角色；这里还没有计算 Token 之间的分数。</p>
+              <p>同一 X 使用三组不同权重。Q、K、V 的名字表示它们在 Attention 中承担的角色；原始分数会由 Q 和 K 的位置配对产生。</p>
             </div>
             <div>
               <h3>数学</h3>
@@ -443,22 +443,149 @@ const steps = dotProductSteps(xRow, wColumn);</code></pre>
           </div>
         </section>
 
+        <section class="panel attention-score-panel" id="attention-score-panel" aria-labelledby="attention-score-title">
+          <div class="panel-heading attention-score-heading">
+            <span class="step-number step-number--purple" aria-hidden="true">06</span>
+            <div>
+              <p class="panel-kicker">Phase 5 · 原始 Attention Score</p>
+              <h2 id="attention-score-title">S = QKᵀ</h2>
+            </div>
+            <span class="matrix-equation">输出 Shape <code id="attention-score-s-shape">[4, 4]</code></span>
+          </div>
+
+          <p class="attention-score-intro">Q 的每一行对应一个 Query 位置；K 的每一行对应一个 Key 位置，转置后成为 Kᵀ 的一列。每个格子用一个 Query 向量与一个 Key 向量做点积；V 保留在上方展示，但不参与这一步计算。</p>
+          <div class="attention-score-flow-card">
+            <span>矩阵乘法与 Shape</span>
+            <code id="attention-score-flow">Q [4, 2] × Kᵀ [2, 4] → S [4, 4]</code>
+            <p>对自注意力输入，N 个 Query 位置与 N 个 Key 位置两两配对。中间分量 t 被求和，留下 Query 与 Key 两个位置轴。</p>
+            <span class="attention-score-retained-v">保留的 V Shape <code id="attention-score-v-shape">[4, 2]</code> · V 不参与当前分数计算</span>
+          </div>
+
+          <section class="attention-score-subsection" aria-labelledby="attention-score-kt-title">
+            <div class="attention-score-section-heading">
+              <div>
+                <p class="panel-kicker">先交换 K 的两个轴</p>
+                <h3 id="attention-score-kt-title">转置后的 Key 矩阵 Kᵀ</h3>
+              </div>
+              <span class="projection-shape-flow">K Shape <code id="attention-score-k-shape">[4, 2]</code> · Kᵀ Shape <code id="attention-score-kt-shape">[2, 4]</code></span>
+            </div>
+            <p class="attention-score-supporting-copy">表中每行是分量 t，每列是 Key 位置 j；<code>K[j, t] = Kᵀ[t, j]</code>。转置只交换轴，不改变数字。</p>
+            <div class="attention-score-table-scroll" role="region" aria-label="转置后的 Key 矩阵 Kᵀ，列按 Key 位置排列，可水平滚动" tabindex="0">
+              <table class="attention-score-table attention-score-kt-table">
+                <caption class="visually-hidden">转置后的 Key 矩阵，行是分量 t，列是 Key 位置及 Token</caption>
+                <thead><tr id="attention-score-kt-head"><th scope="col" class="attention-score-row-axis">分量 t</th></tr></thead>
+                <tbody id="attention-score-kt-body"></tbody>
+              </table>
+            </div>
+            <p class="attention-score-empty-note" id="attention-score-kt-empty" hidden></p>
+          </section>
+
+          <section class="attention-score-subsection" aria-labelledby="attention-score-matrix-title">
+            <div class="attention-score-section-heading">
+              <div>
+                <p class="panel-kicker">每个位置对一个分数</p>
+                <h3 id="attention-score-matrix-title">完整原始分数矩阵 S</h3>
+              </div>
+              <span class="projection-shape-flow">Q Shape <code id="attention-score-q-shape">[4, 2]</code> · S Shape <code id="attention-score-s-shape-summary">[4, 4]</code></span>
+            </div>
+            <p class="attention-score-supporting-copy">行轴始终是 Query 位置 i，列轴始终是 Key 位置 j。点击一个数字查看它的向量和逐项计算；重复 Token 仍按不同位置保留。raw score 可以为负，它不是概率或 Attention Weight。</p>
+            <div class="attention-score-table-scroll attention-score-matrix-scroll" role="region" aria-label="原始分数矩阵 S，行是 Query 位置，列是 Key 位置；可水平滚动" tabindex="0">
+              <table class="attention-score-table attention-score-matrix-table">
+                <caption class="visually-hidden">原始分数矩阵 S，行是 Query 位置，列是 Key 位置；每个数字都可选择并查看计算过程</caption>
+                <thead><tr id="attention-score-s-head"><th scope="col" class="attention-score-corner-axis">Query 位置 i ↓ / Key 位置 j →</th></tr></thead>
+                <tbody id="attention-score-s-body"></tbody>
+              </table>
+            </div>
+            <p class="attention-score-selected" id="attention-score-selected" aria-live="polite"></p>
+            <p class="attention-score-unknown-note" id="attention-score-unknown-note" hidden></p>
+            <p class="attention-score-empty-note" id="attention-score-empty-note" hidden>当前序列为空：Q/K Shape 为 [0, 2]，Kᵀ Shape 为 [2, 0]，S Shape 为 [0, 0]。没有 Query 行或可选择的分数格。</p>
+          </section>
+
+          <section class="attention-score-trace" id="attention-score-trace" aria-labelledby="attention-score-trace-heading" aria-live="polite" hidden>
+            <div class="attention-score-trace-heading">
+              <div>
+                <p class="panel-kicker">所选分数拆解</p>
+                <h3 id="attention-score-trace-heading"><span id="attention-score-trace-cell">S[0, 3]</span> · <span id="attention-score-vector-equation">S[0, 3] = q₀ · k₃</span></h3>
+              </div>
+              <span class="projection-trace-route" id="attention-score-trace-route"></span>
+            </div>
+
+            <div class="projection-vector-grid attention-score-vector-grid">
+              <article class="projection-vector-card">
+                <p class="pair-vector-label">Query 向量 · Q</p>
+                <p class="attention-score-vector-token" id="attention-score-query-token"></p>
+                <p class="projection-vector-value"><code id="attention-score-query-vector"></code></p>
+                <p class="pair-vector-meta">Shape <code id="attention-score-query-shape">[2]</code> · 路径 <code>Q = XWq</code></p>
+                <p class="pair-vector-meta">X 来源 <span id="attention-score-query-source"></span></p>
+              </article>
+              <article class="projection-vector-card">
+                <p class="pair-vector-label">Key 向量 · K</p>
+                <p class="attention-score-vector-token" id="attention-score-key-token"></p>
+                <p class="projection-vector-value"><code id="attention-score-key-vector"></code></p>
+                <p class="pair-vector-meta">Shape <code id="attention-score-key-shape">[2]</code> · 路径 <code>K = XWk</code></p>
+                <p class="pair-vector-meta">X 来源 <span id="attention-score-key-source"></span></p>
+                <p class="attention-score-k-transpose-note" id="attention-score-k-transpose-note"></p>
+              </article>
+            </div>
+
+            <div class="projection-trace-scroll attention-score-steps-scroll" role="region" aria-label="所选分数的逐分量乘积与累计和，可水平滚动" tabindex="0">
+              <table class="dot-product-table projection-trace-table attention-score-steps-table">
+                <caption class="visually-hidden">所选 Query 与 Key 向量逐分量相乘、乘积与累计和</caption>
+                <thead><tr><th scope="col">分量 t</th><th scope="col">Q 分量</th><th scope="col">K 分量</th><th scope="col">乘积</th><th scope="col">累计和</th></tr></thead>
+                <tbody id="attention-score-steps"></tbody>
+              </table>
+            </div>
+
+            <div class="dot-equation-card projection-equation-card attention-score-equation-card">
+              <span>逐项相乘并求和</span>
+              <code id="attention-score-equation"></code>
+            </div>
+            <div class="dot-result-card projection-result-card attention-score-result-card">
+              <div><span class="dot-result-label">raw score</span><strong id="attention-score-result"></strong></div>
+              <span class="dot-result-shape">标量 Shape <code id="attention-score-result-shape">[]</code></span>
+            </div>
+            <p class="attention-score-selected-unknown-note" id="attention-score-selected-unknown-note" hidden></p>
+          </section>
+
+          <div class="attention-score-learning-grid">
+            <div>
+              <h3>直觉</h3>
+              <p>每个 Query 都和每个 Key 位置比较一次，因此 N 个位置形成 N×N 个分数。这里的固定教学数字不表示词义相似程度。</p>
+            </div>
+            <div>
+              <h3>数学</h3>
+              <p><code>S[i,j] = qᵢ · kⱼ = Σₜ Q[i,t] × K[j,t]</code>。它是有方向的 Query-Key 配对；一般 <code>S[i,j] ≠ S[j,i]</code>。</p>
+            </div>
+            <div>
+              <h3>Shape</h3>
+              <p><code>Q [N, 2] × Kᵀ [2, N] → S [N, N]</code>。中间的分量 t 被求和，保留 Query 行和 Key 列；单个格子的点积 Shape 是 <code>[]</code>。</p>
+            </div>
+            <div>
+              <h3>核心代码</h3>
+              <pre class="dot-code attention-score-code"><code>const KT = transposeMatrix(K);
+const S = multiplyMatrices(Q, KT);</code></pre>
+              <p>页面沿用矩阵乘法和点积追踪；计算保留完整精度，只在显示时最多保留 6 位小数。此处尚未做缩放、Softmax 或 V 加权求和。</p>
+            </div>
+          </div>
+          <p class="attention-score-v-note">V 保留在 Phase 4 的投影表中用于后续学习；它不参与当前的 QKᵀ 分数计算。</p>
+        </section>
+
         <section class="learning-note" aria-labelledby="learning-title">
           <div class="learning-note-label">
             <span class="learning-dot" aria-hidden="true"></span>
             <span>本步要点</span>
           </div>
           <div>
-            <h2 id="learning-title">同一个 X · 三组投影 · Q / K / V</h2>
-            <p>从每个 Token 的 3 维 Embedding 组成矩阵 X，再分别乘以 Wq、Wk、Wv。权重固定且未训练；每个输出格都能拆成一行乘一列的点积。</p>
+            <h2 id="learning-title">位置配对 · 原始分数 · N × N</h2>
+            <p>固定投影产生 Q、K、V；对每个 Query 位置和 Key 位置做一次点积，得到有方向的原始分数 S = QKᵀ。V 保留展示但暂不参与计算。</p>
           </div>
-          <span class="learning-formula" aria-label="输入矩阵乘以三组投影权重">X [N, 3] → Q / K / V [N, 2]</span>
+          <span class="learning-formula" aria-label="Query 与转置 Key 相乘得到原始分数矩阵">Q [N, 2] × Kᵀ [2, N] → S [N, N]</span>
         </section>
       </main>
 
       <footer class="site-footer">
         <span>一个可以动手观察的 Transformer 学习实验室</span>
-        <span>Phase 01 → 02 → 03 → 04 / Q · K · V</span>
+        <span>Phase 01 → 02 → 03 → 04 → 05 / QKᵀ</span>
       </footer>
     </div>
   </body>

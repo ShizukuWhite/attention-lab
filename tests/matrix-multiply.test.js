@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { matrixCellSteps, multiplyMatrices } from '../src/matrix-multiply.js';
+import { matrixCellSteps, multiplyMatrices, transposeMatrix } from '../src/matrix-multiply.js';
 
 const left = {
   matrix: [[1, 2, 3], [-1, 0, 2]],
@@ -154,4 +154,47 @@ test('does not mutate inputs, preserves precision, and returns detached data', (
     shape: [1, 1],
   });
   assert.equal(matrixCellSteps(mutableLeft, mutableRight, 0, 0).result, 0.123456789);
+});
+
+test('transposes rectangular matrices and retains declared empty shapes', () => {
+  assert.deepEqual(transposeMatrix({
+    matrix: [[1, 2, 3], [4, 5, 6]],
+    shape: [2, 3],
+  }), { matrix: [[1, 4], [2, 5], [3, 6]], shape: [3, 2] });
+  assert.deepEqual(transposeMatrix({ matrix: [], shape: [0, 2] }), {
+    matrix: [[], []],
+    shape: [2, 0],
+  });
+  assert.deepEqual(transposeMatrix({ matrix: [[], []], shape: [2, 0] }), {
+    matrix: [],
+    shape: [0, 2],
+  });
+  assert.deepEqual(transposeMatrix({ matrix: [], shape: [0, 0] }), {
+    matrix: [],
+    shape: [0, 0],
+  });
+});
+
+test('transpose validates empty and populated matrices and returns detached data', () => {
+  assert.throws(() => transposeMatrix({ matrix: [[1]], shape: [0, 1] }), RangeError);
+  assert.throws(() => transposeMatrix({ matrix: [[1], [1, 2]], shape: [2, 1] }), RangeError);
+
+  const sparseOuter = [];
+  sparseOuter.length = 1;
+  const sparseRow = [];
+  sparseRow.length = 1;
+  for (const value of [
+    { matrix: sparseOuter, shape: [1, 0] },
+    { matrix: [sparseRow], shape: [1, 1] },
+    { matrix: [[Infinity]], shape: [1, 1] },
+  ]) {
+    assert.throws(() => transposeMatrix(value), TypeError);
+  }
+
+  const input = { matrix: [[0.123456789, -2], [3, 4]], shape: [2, 2] };
+  const result = transposeMatrix(input);
+  assert.deepEqual(result, { matrix: [[0.123456789, 3], [-2, 4]], shape: [2, 2] });
+  result.matrix[0][0] = 99;
+  result.shape[0] = 99;
+  assert.deepEqual(input, { matrix: [[0.123456789, -2], [3, 4]], shape: [2, 2] });
 });

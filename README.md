@@ -24,9 +24,9 @@ node --test
 
 仓库根目录就是 `attention-lab/`，无需进入嵌套目录。`package.json` 也定义了 `start` 和 `test` 脚本；日常运行和检查直接使用上面的 Node 命令即可。
 
-## 当前阶段：Phase 1–4 — Token、Embedding、点积与 Q/K/V 投影
+## 当前阶段：Phase 1–5 — Token、Embedding、点积、Q/K/V 与 Attention Score
 
-输入文本并点击 **Analyze**，页面会显示 Token 序列、序列长度 `N`、Token 列表 Shape `[N]` 和每个 Token 的位置。点击一个 Token，可以查看它的文本、从 0 开始的位置索引、从 1 开始的序位、Unicode 码点数及对应向量。页面还会把所有向量按 Token 位置排列为数值矩阵 `X`。Phase 3 允许独立选择两个 Token 的向量，观察逐项乘法、累计和及点积结果；Phase 4 会从当前 `X` 生成 `Q`、`K`、`V`。修改输入后，页面会标出四个阶段仍来自上一次分析；再次点击 Analyze 会同时更新。
+输入文本并点击 **Analyze**，页面会显示 Token 序列、序列长度 `N`、Token 列表 Shape `[N]` 和每个 Token 的位置。点击一个 Token，可以查看它的文本、从 0 开始的位置索引、从 1 开始的序位、Unicode 码点数及对应向量。页面还会把所有向量按 Token 位置排列为数值矩阵 `X`。Phase 3 允许独立选择两个 Token 的向量，观察逐项乘法、累计和及点积结果；Phase 4 从当前 `X` 生成 `Q`、`K`、`V`；Phase 5 显示完整原始分数矩阵 `S = QKᵀ` 并追踪任意格子。修改输入后，这些结果都保持为上一次 Analyze 的快照；再次点击 Analyze 会一起更新。
 
 ### Phase 1：教学用空白分词
 
@@ -91,7 +91,7 @@ for (let i = 0; i < a.length; i += 1) {
 
 ### Phase 4：Q、K、V 投影
 
-直觉上，同一个 Embedding 矩阵 `X` 分别乘以三组不同权重，得到三种表示。`Q` 是后续发出查询的表示，`K` 是后续被匹配的表示，`V` 是后续被汇总的内容；这些角色要等后续 Attention 运算连接起来才会发挥作用。本阶段只准备 `Q`、`K`、`V`，还没有计算 Token 之间的分数或权重。
+直觉上，同一个 Embedding 矩阵 `X` 分别乘以三组不同权重，得到三种表示。`Q` 是发出查询的表示，`K` 是被匹配的表示，`V` 是后续被汇总的内容。Phase 4 显示三种投影；Phase 5 使用 `Q` 和 `K` 计算原始分数，`V` 仍保留展示但不参与这一步。
 
 页面使用固定、未训练且没有 bias 的小权重矩阵：
 
@@ -126,14 +126,46 @@ K[0, 1] = 0.2 × 1 + 0.7 × (-1) + 0.1 × 0 = -0.5
 
 `K[0, 1]` 中的负贡献来自固定权重 `-1`，不是负概率或负面含义。`V` 也由同一 `X` 与 `Wv` 按相同规则计算。页面保留完整计算精度，显示时最多保留 6 位小数并去掉末尾的零。
 
+### Phase 5：原始 Attention Score
+
+对每个 Query 位置和每个 Key 位置做一次点积，得到原始分数矩阵：
+
+```text
+S = QKᵀ
+S[i, j] = qᵢ · kⱼ = Σₜ Q[i, t] × K[j, t]
+```
+
+对自注意力输入，Q 和 K 各有 N 行，因而有 N 个 Query 位置与 N 个 Key 位置配对。`Q` 的 Shape 是 `[N, 2]`，`K` 是 `[N, 2]`，转置后 `Kᵀ` 是 `[2, N]`，所以 `S` 的 Shape 是 `[N, N]`。求和的中间分量 `t` 消失，留下 Query 行和 Key 列。`S[i,j]` 是第 i 个 Query 位置和第 j 个 Key 位置的有方向配对；一般不对称。
+
+转置交换 K 的行轴和分量轴，不改变数字：`K[j,t] = Kᵀ[t,j]`。点击 S 的任意数字，会显示对应的 Q 行、K 行、两个分量的乘积、累计和及标量 Shape `[]`。默认选中 `S[0,3]`：
+
+```text
+S[0,3] = [0.3, 0.6] · [1.1, -0.2]
+       = 0.3 × 1.1 + 0.6 × (-0.2)
+       = 0.33 + (-0.12)
+       = 0.21
+```
+
+默认 `S` 的完整数值为：
+
+| Query \ Key | 0 · I | 1 · love | 2 · my | 3 · gecko |
+| --- | ---: | ---: | ---: | ---: |
+| 0 · I | -0.06 | 0.51 | 0.12 | 0.21 |
+| 1 · love | 1.01 | 0.79 | 0.98 | 1.34 |
+| 2 · my | 0.28 | 0.62 | 0.40 | 0.58 |
+| 3 · gecko | 0.76 | 1.04 | 0.88 | 1.24 |
+
+例如 `S[0,1] = 0.51`，而 `S[1,0] = 1.01`，说明这组固定投影产生的矩阵不对称。分数是 raw score，可以为负；它不是概率，也不是后续的 Attention Weight，更不能据此断言 Token 具有某种词义关系。未知 Token 使用零向量占位，对应的 Q/K 行为零，因此 S 中对应分数行与列为零；这是查表规则的结果。页面尚未实现缩放、Softmax 或 V 加权求和。
+
 ### 动手试一试
 
 1. 保持默认的 `I love my gecko`。查看点积面板的三项乘积与累计和，确认 `I · gecko = 0.82`。
 2. 将向量 A 改成 `love`，B 保持 `gecko`，观察结果 `1.03`，它可以大于 1。再选择同一个位置两次，查看自点积；例如 `love · love = 0.89`。
 3. 在 Phase 4 点击默认选中的 `Q[0, 0]`，逐项检查 `X` 第 0 行与 `Wq` 第 0 列，得到 `0.3`。再点击 `K[0, 1]`，观察负权重带来的负贡献和结果 `-0.5`。
 4. 分析 `love love`，从两个不同位置各选一个 `love`。文本和向量数值虽然相同，位置索引仍分别为 0 和 1；Q/K/V 也会保留两行。再试 `i love!`、中文、单个 Token 和空白输入，留意未知 Token 的零向量来源、单 Token 自点积与 `[0, 2]` 的空投影 Shape。
+5. 查看默认 `S[0,3]` 的两项乘积，确认结果为 `0.21`；再选 `S[0,1]` 和 `S[1,0]`，比较方向相反的分数。分析 `love love` 后可检查重复位置形成的完整 2×2 矩阵；分析 `I mystery`、`I` 和空白输入可观察零行/列、1×1 和空 Shape。
 
-输入新文本但先不点 **Analyze** 时，Tokens、Embedding、点积和 Q/K/V 都仍来自旧序列；点击 **Analyze** 后四者会一起更新。选择 Q/K/V 的输出格不会更改 Token 详情或 Phase 3 的两个点积选择。
+输入新文本但先不点 **Analyze** 时，Tokens、Embedding、点积、Q/K/V、Kᵀ 和 S 都仍来自旧序列；点击 **Analyze** 后它们会一起更新。Token 详情、Phase 3 两个下拉框、Phase 4 输出格和 Phase 5 分数格是互相独立的选择。点击分数格只更新分数追踪，不会重新 Analyze。
 
 Unicode 码点数不等于屏幕上看到的符号数量。有些组合字符或 Emoji 会由多个码点组成。
 
@@ -145,6 +177,8 @@ Unicode 码点数不等于屏幕上看到的符号数量。有些组合字符或
 - 每个投影权重 `Wq`、`Wk`、`Wv`：`[3, 2]`；`X [N, 3] × W [3, 2]` 得到 `Q`、`K` 或 `V` 的 `[N, 2]`，中间的 3 被求和。空序列的三个投影 Shape 都是 `[0, 2]`，权重仍为 `[3, 2]`。
 - 点击一个 Q/K/V 输出格时，输入行和权重列的 Shape 都是 `[3]`；逐项乘积 Shape 是 `[3]`，求和后的单个输出格是标量 Shape `[]`。
 - 点积输出：`[]`，表示没有维度轴的标量 Shape；点积值本身仍是一个数字。
+- 转置后的 Key 矩阵：`Kᵀ [2, N]`；空序列仍有两行分量轴，但没有 Key 列，Shape 为 `[2, 0]`。
+- 原始分数矩阵：`Q [N, 2] × Kᵀ [2, N] → S [N, N]`；单个格子使用两个 `[2]` 向量点积，结果 Shape 为 `[]`。空序列的 S Shape 是 `[0, 0]`，没有可选格。
 
 ## 项目目录
 
@@ -157,6 +191,8 @@ attention-lab/
 ├── start.cmd
 ├── src/
 │   ├── app.js
+│   ├── attention-score.js
+│   ├── attention-score-view.js
 │   ├── dot-product.js
 │   ├── embedding.js
 │   ├── matrix-multiply.js
@@ -167,28 +203,28 @@ attention-lab/
 └── tests/
     ├── dot-product.test.js
     ├── embedding.test.js
+    ├── attention-score.test.js
     ├── matrix-multiply.test.js
     ├── projection.test.js
     └── tokenizer.test.js
 ```
 
-建议先读 `src/tokenizer.js`、`src/embedding.js`、`src/dot-product.js`、`src/matrix-multiply.js` 和 `src/projection.js`。纯函数 `analyzeText` 按教学用空白规则切分文本，返回 Token 文本、位置、码点数、序列长度和 Shape；`embedTokens` 按固定表给 Token 查找向量，并返回各行及矩阵 Shape；`dotProductSteps` 返回向量点积的逐项乘积与累计和；`multiplyMatrices` 返回显式 Shape 的矩阵乘法结果，`matrixCellSteps` 拆解一个输出格的行乘列点积；`projectQKV` 用固定 `Wq`、`Wk`、`Wv` 生成三个投影矩阵。这些学习模块都不读取网页，也不访问网络。
+建议先读 `src/tokenizer.js`、`src/embedding.js`、`src/dot-product.js`、`src/matrix-multiply.js`、`src/projection.js` 和 `src/attention-score.js`。纯函数 `analyzeText` 按教学用空白规则切分文本，返回 Token 文本、位置、码点数、序列长度和 Shape；`embedTokens` 按固定表给 Token 查找向量，并返回各行及矩阵 Shape；`dotProductSteps` 返回向量点积的逐项乘积与累计和；`multiplyMatrices` 返回显式 Shape 的矩阵乘法结果，`transposeMatrix` 交换矩阵轴并保留空 Shape，`matrixCellSteps` 拆解一个输出格的行乘列点积；`projectQKV` 用固定 `Wq`、`Wk`、`Wv` 生成三个投影矩阵；`computeAttentionScores` 组合转置和矩阵乘法得到 `Kᵀ` 与 raw score `S`。这些数学模块都不读取网页，也不访问网络。
 
-`src/projection-view.js` 单独负责本阶段矩阵与输出格的 DOM 显示；`src/app.js` 只把 Analyze 得到的 Embedding 快照交给它。其余文件负责让实验可以操作：`index.html` 提供页面结构，`src/styles.css` 设置页面布局，`server.mjs` 提供本地静态服务，`tests/` 中的测试固定学习规则以便回归检查。页面与样式代码是工程支撑，不必深入研究。
+`src/projection-view.js` 负责 Q/K/V 矩阵与投影格追踪；`src/attention-score-view.js` 负责 Kᵀ、S 和分数追踪。Analyze 会把同一份 Embedding 与 Q/K/V 快照交给两个 view，避免页面阶段各自重算。其余文件负责让实验可以操作：`index.html` 提供页面结构，`src/styles.css` 设置页面布局，`server.mjs` 仅提供页面需要的静态文件，`tests/` 中的测试固定学习规则以便回归检查。页面与样式代码是工程支撑，不必深入研究。
 
 ## 学习路线图
 
-当前已实现 Phase 1、Phase 2、Phase 3 和 Phase 4。后续阶段计划如下：
+当前已实现 Phase 1 至 Phase 5。后续阶段计划如下：
 
-1. **Phase 5 — Attention Score：** 计算 `QKᵀ`，理解为什么 N 个 Token 会产生 `N × N` 矩阵。
-2. **Phase 6 — Scaled Dot-Product Attention：** 分步展示缩放、Softmax、权重和加权求和。
-3. **Phase 7 — Attention Heatmap：** 按 Query 和 Key 位置探索实际权重。
-4. **Phase 8 — Multi-Head Attention：** 比较不同 Head，查看拼接与输出投影。
-5. **Phase 9 — Transformer Block：** 跟踪 Attention、残差连接、归一化和前馈网络。
-6. **Phase 10 — 位置信息：** 比较不同顺序的序列，观察加入位置信息后的变化。
-7. **Phase 11 — Mask：** 可视化 Padding Mask 与 Causal Mask。
-8. **Phase 12 — Transformer 架构：** 串起 Encoder 和 Decoder 模块及其 Shape。
-9. **Phase 13 — TensorFlow：** 将框架实现与此前手动拆解的运算对照。
-10. **Phase 14 — Tiny Transformer：** 观察一个小模型的预测、Loss、Gradient 和权重更新。
+1. **Phase 6 — Scaled Dot-Product Attention：** 分步展示缩放、Softmax、权重和加权求和。
+2. **Phase 7 — Attention Heatmap：** 按 Query 和 Key 位置探索实际权重。
+3. **Phase 8 — Multi-Head Attention：** 比较不同 Head，查看拼接与输出投影。
+4. **Phase 9 — Transformer Block：** 跟踪 Attention、残差连接、归一化和前馈网络。
+5. **Phase 10 — 位置信息：** 比较不同顺序的序列，观察加入位置信息后的变化。
+6. **Phase 11 — Mask：** 可视化 Padding Mask 与 Causal Mask。
+7. **Phase 12 — Transformer 架构：** 串起 Encoder 和 Decoder 模块及其 Shape。
+8. **Phase 13 — TensorFlow：** 将框架实现与此前手动拆解的运算对照。
+9. **Phase 14 — Tiny Transformer：** 观察一个小模型的预测、Loss、Gradient 和权重更新。
 
 每个新概念优先按“直觉 → 数学 → Shape → 代码”的顺序学习。前期会使用少量 Token 和小矩阵，使中间数值容易检查。框架语法是后续对照已有概念的工具，不会变成独立的 JavaScript 或 Python 入门课程。
